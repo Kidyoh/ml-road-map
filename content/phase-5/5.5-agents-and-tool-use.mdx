@@ -1,0 +1,252 @@
+---
+id: "5.5"
+phase: 5
+order_index: 5
+title: "Agents and tool use"
+slug: "agents-and-tool-use"
+prereqs: ["5.4"]
+status: "published"
+goal: "You can build an agent that calls tools, and say where the loop fails and what it costs per run — with numbers."
+resources:
+  primary:
+    name: "Anthropic — Building effective agents"
+    url: "https://www.anthropic.com/engineering/building-effective-agents"
+    type: "article"
+    cost: "free"
+  alt:
+    name: "Anthropic — Tool use overview"
+    url: "https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Build an agent with three tools and a loop. Measure completion rate, steps and cost per task across 20 runs. Then remove the loop and solve the same tasks with a fixed sequence of calls, and find out whether the agent was ever worth it."
+  difficulty: "hard"
+checklist:
+  - "My agent has exactly 3 tools, each with a schema, and I can state what each one does in one sentence"
+  - "I ran 20 tasks and recorded, per task, whether it completed, how many steps it took, and what it cost"
+  - "My median step count and my maximum step count are different by at least 2x, and I recorded both"
+  - "I have a hard step limit and at least one of my 20 runs hit it"
+  - "I recorded the total cost of all 20 runs and the cost of the most expensive single run"
+  - "I built a fixed-sequence version with no loop that solves the same tasks, and compared completion rate, cost and latency against the agent"
+  - "At least one tool call failed during my runs, and I recorded how the agent responded to the error"
+  - "I deliberately returned a malformed tool result and recorded whether the agent recovered or looped"
+  - "I classified every failure into: wrong tool chosen, right tool with wrong arguments, tool failed, or correct execution with a wrong final answer"
+  - "I can state, from my numbers, whether the loop was worth it for this task"
+questions:
+  - prompt: "Compare your agent against your fixed-sequence version with the numbers. Under what conditions is the loop worth its cost?"
+    answer_key: >-
+      The loop is worth it when the sequence of steps genuinely cannot be known in
+      advance — when what to do next depends on what the previous step returned,
+      when the number of steps varies by task, or when recovery from a failure
+      requires choosing a different approach rather than retrying. If every task
+      in my set followed the same three calls, the fixed sequence wins on every
+      axis that matters: it is cheaper because there is no reasoning token spent
+      deciding what is already known, faster because there is no round trip per
+      decision, more reliable because there is no opportunity to choose wrongly,
+      debuggable because the trace is the same every time, and testable with
+      ordinary methods. The honest finding on most tasks people build agents for
+      is that the fixed sequence is adequate, and the agent was built because it
+      is more interesting. The useful framing is that agency is a cost you pay for
+      handling variance in the task, so the question to ask first is how much
+      variance there actually is — and the way to find out is to look at whether
+      the traces differ, which is exactly what the 20 runs show.
+  - prompt: "Your median and maximum step counts differ substantially. Explain what drives the tail, and why the maximum matters more than the median for production."
+    answer_key: >-
+      The tail is driven by tasks where the agent goes wrong and then has to
+      recover, or fails to recover: a tool returns something unexpected, the agent
+      retries with slightly different arguments, gets a similar result, tries a
+      different tool, and works its way around the problem or circles. Ambiguous
+      tasks also stretch the tail, because the agent explores rather than
+      proceeding. The maximum matters more than the median because it determines
+      your worst-case cost, your worst-case latency, and therefore what you must
+      budget and what timeout you must set. A median of 4 steps and a maximum of
+      40 means a tenfold spread in cost per task, and if the pricing model or the
+      user-facing latency budget was set from the median, the tail breaks it.
+      This is the same reason latency is reported at the 95th and 99th percentile
+      rather than the mean: users experience the tail, and systems fail in it. A
+      hard step limit is not a safety feature so much as a cost control, and every
+      agent needs one.
+  - prompt: "You returned a malformed tool result and watched the agent respond. Describe what happened, and say what the loop needs to handle errors well."
+    answer_key: >-
+      Typical behaviours: retrying the identical call and getting the identical
+      failure, retrying with slightly altered arguments, switching to another
+      tool, hallucinating a plausible result and continuing as though the call had
+      succeeded, or giving up and reporting the failure honestly. The last is what
+      you want and the second-to-last is the dangerous one, because the run
+      completes and the answer is fabricated. What the loop needs: error messages
+      that describe what went wrong specifically enough to act on, rather than a
+      generic failure — "expected an ISO date, got 'next Tuesday'" is actionable
+      where "invalid input" is not. A retry budget per tool, so identical retries
+      terminate. Idempotent tools, so a retry cannot cause a side effect twice.
+      And an explicit path for giving up, since without one the model's strong
+      bias toward being helpful pushes it to invent something. This is the same
+      trade-off as node 5.3's "I don't know" escape, and it needs the same
+      treatment: make abstention a legitimate, specified outcome rather than a
+      failure of the prompt.
+  - prompt: "You classified failures into four categories. Give your counts, and say which category you would work on first and why."
+    answer_key: >-
+      The four are: wrong tool chosen, right tool with wrong arguments, the tool
+      itself failed, and correct execution with a wrong final answer. Which to
+      work on depends on the counts, and the fixes differ completely. Wrong tool
+      selection usually means the tool descriptions overlap or are vague, and the
+      fix is in the schemas rather than in the model — clearer names, sharper
+      descriptions, or merging two tools that are hard to distinguish. Wrong
+      arguments usually means the schema is underspecified: no examples, loose
+      types, no constraints, ambiguous field names. Tool failures are ordinary
+      software problems and belong to whoever owns the tool. Correct execution
+      with a wrong final answer is a synthesis problem and is the hardest, because
+      everything worked and the conclusion was still wrong. The general ordering
+      is to fix the categories that are cheapest and most mechanical first, which
+      is usually the schemas, because they are static text and the improvement
+      applies to every future run. This is node 2.7's error analysis applied to a
+      different kind of system, and it is the same argument: count before you fix.
+reflection_prompt: "Would you ship the agent or the fixed sequence for this task? Answer with your numbers, and say what would have to change for the other answer to be right."
+struggle_signals:
+  - "learner builds an agent for a task with no branching"
+  - "learner has no step limit"
+  - "learner does not measure cost per task"
+  - "learner cannot tell a tool-selection failure from an argument failure"
+  - "learner accepts a completed run without checking the answer is right"
+---
+
+## Why this node exists
+
+An agent is a loop that lets a model choose what to do next. That is the whole
+idea, and it is genuinely powerful when the next step cannot be known in advance.
+
+It is also the most over-applied pattern in the field. A great many agents are
+solving problems that a fixed sequence of three function calls would solve more
+cheaply, faster and more reliably. This node makes you measure that rather than
+assert it either way.
+
+It is also where every failure mode from phase 5 compounds. An agent taking ten
+steps has ten chances to fail, and it can fail while still returning a confident
+answer.
+
+## The session
+
+Pick a task with real multi-step structure. The RAG system from node 5.3 with
+tools around it works well: search the corpus, fetch a full document, and do
+arithmetic.
+
+### 1. Three tools, properly specified
+
+```json
+{
+  "name": "search_corpus",
+  "description": "Search the document corpus for passages matching a query. Returns up to 5 chunks with ids and scores.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "query": {"type": "string", "description": "Natural language search query"},
+      "top_k": {"type": "integer", "description": "How many chunks to return, 1 to 10"}
+    },
+    "required": ["query"]
+  }
+}
+```
+
+The description is not documentation — it is the entire basis on which the model
+decides whether to call this tool. Vague descriptions are the most common cause
+of wrong-tool failures, and question 4 comes back to this.
+
+### 2. The loop
+
+```
+while not done and steps < LIMIT:
+    response = model(messages, tools=tools)
+    if response.wants_to_use_a_tool:
+        result = execute(response.tool_call)
+        messages.append(result)
+    else:
+        done = True
+    steps += 1
+```
+
+**`LIMIT` is not optional.** The checklist requires that at least one of your 20
+runs hits it, because you need to know what that looks like before it happens in
+production.
+
+### 3. Twenty runs, measured
+
+| Per task | Record |
+|---|---|
+| Completed | yes / no |
+| Correct | yes / no — these are different |
+| Steps | count |
+| Cost | dollars |
+| Latency | seconds |
+
+Then report median **and maximum** for steps and cost. Question 2 is about why
+the maximum is the number that matters.
+
+### 4. Remove the loop
+
+Solve the same 20 tasks with a fixed sequence: search, fetch, answer. No
+decisions.
+
+| | Agent | Fixed sequence |
+|---|---|---|
+| Completion rate | | |
+| Correct rate | | |
+| Median cost | | |
+| Max cost | | |
+| Median latency | | |
+
+If the fixed sequence wins, that is your answer for this task. Question 1 asks
+under what conditions the loop earns its cost.
+
+### 5. Break a tool on purpose
+
+Return a malformed result. Watch what the agent does.
+
+The behaviour to watch for is fabrication — the agent inventing a plausible
+result and continuing. That produces a completed run with a wrong answer, which
+is the worst outcome because nothing signals it.
+
+### 6. Classify every failure
+
+| Category | Fix lives in |
+|---|---|
+| Wrong tool chosen | tool descriptions |
+| Right tool, wrong arguments | input schema, examples |
+| Tool itself failed | the tool's code |
+| Executed correctly, wrong answer | prompt, model, task decomposition |
+
+Node 2.7's error analysis, applied to agents. Count first.
+
+## When to reach for what
+
+| Pattern | Use when |
+|---|---|
+| Single call | one step, no branching |
+| Chain — fixed sequence | steps known in advance |
+| Router — classify, then dispatch | a few known paths |
+| **Agent — loop with tools** | next step depends on previous results |
+| Multi-agent | genuinely separable subtasks, and you have measured that a single agent fails |
+
+Work down this list, not up it. Each row costs more than the one above in money,
+latency, and things that can go wrong.
+
+## Common walls
+
+**The agent calls the same tool repeatedly with the same arguments.** No retry
+budget, and the error message is not specific enough to change its behaviour.
+Both are fixable in the tool, not the prompt.
+
+**Costs are much higher than expected.** The whole conversation, including every
+tool result, is resent on every step. Ten steps is roughly quadratic in tokens.
+Truncate or summarise the history.
+
+**It works on your five test tasks.** Five is not enough to see the tail, and the
+tail is what breaks. Twenty is the minimum here and it is still small.
+
+**The agent completes but the answer is wrong.** Track completion and correctness
+separately. Completion rate is the easy metric and it is not the one you care
+about.
+
+## Before you move on
+
+That is phase 5. Phase 6 is about putting any of this in front of real traffic —
+serving it, containerising it, tracking what you ran, and finding out when it
+breaks. Node 6.1 starts with the smallest version of that.

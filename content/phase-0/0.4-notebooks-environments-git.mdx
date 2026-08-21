@@ -1,0 +1,202 @@
+---
+id: "0.4"
+phase: 0
+order_index: 4
+title: "Notebooks, environments, git"
+slug: "notebooks-environments-git"
+prereqs: ["0.1"]
+status: "published"
+goal: "You can hand someone a repository they can run from a clean machine, and you can recover your own work after deliberately breaking it."
+resources:
+  primary:
+    name: "The Turing Way — Reproducible Research"
+    url: "https://book.the-turing-way.org/"
+    type: "book"
+    cost: "free"
+  alt:
+    name: "Pro Git — chapters 2, 3 and 7.7"
+    url: "https://git-scm.com/book/en/v2"
+    type: "book"
+    cost: "free"
+session:
+  brief: "Package node 0.1's three scripts as a repository someone else could run. Then break it on purpose — commit a secret, lose a commit, corrupt your notebook's state — and recover from each without deleting the folder and starting over."
+  difficulty: "easy"
+checklist:
+  - "`git log --oneline` shows at least 5 commits, and every message says what changed rather than 'update' or 'fix'"
+  - "A fresh clone into a different directory runs my code end to end after exactly two commands: create the environment, then run the script"
+  - "My requirements.txt or pyproject.toml pins exact versions, and `pip freeze` in the fresh environment produces the same package versions as my original one"
+  - "`git status` is clean and `.venv/`, `__pycache__/` and `.ipynb_checkpoints/` are all ignored — I confirmed with `git status --ignored`"
+  - "I committed a fake API key, then removed it from history, and `git log -S'FAKE_SECRET' --all` now returns zero commits"
+  - "I deleted a commit with `git reset --hard`, recovered it from `git reflog`, and the recovered commit hash matches the one I wrote down before deleting it"
+  - "Restart-and-run-all on my notebook completes with zero errors, and the cell execution numbers afterwards read 1, 2, 3... in order with no gaps"
+  - "I broke my notebook by running cells out of order, and I can point at the exact variable whose value depended on execution order"
+questions:
+  - prompt: "Your notebook works. You restart the kernel and run all cells, and it fails. Explain what was actually true about your notebook before the restart, and why this failure is a good thing to have found now."
+    answer_key: >-
+      Before the restart, the notebook's output depended on hidden state in the
+      kernel that no longer exists anywhere in the file — a variable defined in a
+      cell you later edited, an import from a cell you deleted, a dataframe you
+      mutated in a cell you have since run twice. The document you would hand
+      someone and the computation that actually produced your results were two
+      different things, and only one of them was saved. Restart-and-run-all is
+      the only way to test that they agree. Finding it now is cheap; finding it
+      when a colleague cannot reproduce your number, or when you come back in
+      three months, is not. The habit worth forming is to treat restart-and-run-
+      all as the definition of "it works" — anything less is a claim about a
+      kernel that no longer exists.
+  - prompt: "You removed a committed secret from your git history. Explain why deleting the line and committing the fix is not enough, and say what you should do about the key itself regardless of how well you cleaned the history."
+    answer_key: >-
+      A commit that removes a line does not remove the earlier commit that added
+      it. The old blob is still in the repository, still reachable by its hash,
+      still visible in `git log -p`, and still present in every clone anybody
+      made. Rewriting history with filter-repo or an interactive rebase removes
+      it from your copy, but anyone who already fetched has it, and if it was ever
+      pushed to a forge then it may be in their reflog, in a fork, in a pull
+      request view, or in a search index. So the only safe assumption is that a
+      pushed secret is a leaked secret: rotate it. Cleaning history is worth doing
+      to stop it leaking again, but it is the second step, not the first. The
+      first step is to make the leaked value worthless.
+  - prompt: "A virtual environment and a pinned requirements file solve different problems. Say what each one actually guarantees, and name something neither of them protects you from."
+    answer_key: >-
+      A virtual environment isolates: it guarantees that this project's packages
+      do not collide with another project's, and that installing something here
+      does not change anything there. It says nothing about which versions you
+      get. A pinned requirements file specifies: it guarantees that a fresh
+      install resolves to the same package versions you had. It says nothing
+      about isolation — you can pin exact versions and still install them into
+      your system Python and break something else. You need both. Neither
+      protects you from anything outside the Python package graph: the Python
+      version itself unless you pin that separately, system libraries that
+      wheels link against, CUDA and driver versions, the operating system, or a
+      package that was yanked from the index after you pinned it. That gap is
+      most of the reason node 6.2 exists — a container pins the layer underneath.
+  - prompt: "You recovered a deleted commit from the reflog. In your own words, why was the commit still there after `git reset --hard` claimed to have discarded it, and when does that stop being true?"
+    answer_key: >-
+      `git reset --hard` moves the branch pointer and rewrites the working tree.
+      It does not delete objects. The commit is still in the object database,
+      just unreachable from any branch or tag — and the reflog keeps a local
+      record of every position HEAD has held, so the hash is still written down
+      somewhere you can read. That is why recovery is usually a matter of finding
+      the hash rather than of undoing anything. It stops being true when garbage
+      collection runs and prunes unreachable objects, which by default happens for
+      reflog entries older than 90 days, or immediately if you force it. The
+      practical takeaway is that almost nothing committed to git is ever really
+      lost in the short term, and that the genuinely dangerous commands are the
+      ones that touch uncommitted work — `git checkout --` on a modified file, or
+      `git clean -fd` — because that content was never in the object database at
+      all.
+reflection_prompt: "Think of a time you lost work, or could not reproduce a result you had produced yourself. Which of the practices in this node would have prevented it — and if none of them would have, what would?"
+struggle_signals:
+  - "learner commits their virtual environment directory"
+  - "learner cannot explain what is in .gitignore and why"
+  - "learner uses `git commit -am` for everything without reading the diff"
+  - "learner never runs restart-and-run-all before sharing a notebook"
+---
+
+## Why this node exists
+
+This is the node people skip, and it is the one that costs them most.
+
+Not because version control is intellectually hard — it is not — but because
+every hour you spend later reconstructing which combination of code and data
+produced a number is an hour of pure waste. That reconstruction is the single
+most common way machine learning work gets lost, and it happens to experienced
+people constantly.
+
+It also sits under everything after it. Node 6.3 is about experiment tracking,
+which is this discipline applied to model runs. Node 6.2 is containers, which is
+this discipline applied one layer further down. If you find those nodes tedious
+later, it will be because this one did not land.
+
+## The session
+
+### 1. Make node 0.1 into a repository
+
+Take `primes.py`, `collatz.py` and `palindromes.py` and turn them into something
+you could hand to someone else:
+
+```
+ml-fundamentals/
+  README.md          what this is, how to run it, what to expect
+  requirements.txt   pinned, even though these scripts need nothing
+  .gitignore
+  src/
+    primes.py
+    collatz.py
+    palindromes.py
+```
+
+Commit as you go, in pieces that each make sense on their own. The checklist asks
+for at least five commits with real messages, because "update" tells a future
+reader nothing and there is no better time to build the habit than on work
+nobody is watching.
+
+### 2. Prove it from a clean checkout
+
+```bash
+cd /somewhere/else
+git clone /path/to/ml-fundamentals check
+cd check
+python -m venv .venv && .venv/bin/pip install -r requirements.txt
+python src/primes.py
+```
+
+If that does not produce 9592 and 454396537, your repository is not
+self-contained and you have just learned something for free.
+
+On Windows the activate path is `.venv\Scripts\activate` instead.
+
+### 3. Break it on purpose
+
+This is the actual point of the node. Three deliberate disasters:
+
+**Commit a secret.** Add `FAKE_SECRET = "sk-not-a-real-key-0000"` to a file,
+commit it, push it to a local bare repo you make yourself. Then remove it from
+history — `git filter-repo` is the current tool, an interactive rebase works for
+a recent commit — and verify with `git log -S'FAKE_SECRET' --all`.
+
+**Lose a commit.** Write down the hash of your latest commit. Then
+`git reset --hard HEAD~1`. Confirm it is gone from `git log`. Now recover it from
+`git reflog` and check the hash matches what you wrote down.
+
+**Corrupt your notebook's state.** Make a notebook with three cells where the
+second depends on a variable the first defines. Run them out of order. Edit the
+first cell without re-running it. Get the notebook into a state where it produces
+a number that no ordering of the file could reproduce. Then restart and run all,
+watch it fail, and fix it.
+
+## What good looks like
+
+A README that says what the project is, how to set it up, how to run it, and what
+output to expect. Three sentences beats three paragraphs. The test is whether a
+competent stranger — or you, in six months, which is the same thing — can get
+from clone to correct output without asking you anything.
+
+## Common walls
+
+**Your fresh clone cannot find your modules.** You are relying on your editor's
+path configuration rather than on anything in the repository. Either add a
+minimal `pyproject.toml` and `pip install -e .`, or keep the scripts flat. Do not
+paste `sys.path.append` into the top of a file and call it solved.
+
+**`pip freeze` in the fresh environment lists more packages than your
+requirements.** That is transitive dependencies, and it is fine. What matters is
+that the packages you asked for resolved to the same versions. If they did not,
+your pins are not pins — check for `>=` where you meant `==`.
+
+**You cannot get filter-repo to run.** It is a separate install
+(`pip install git-filter-repo`) and it refuses to operate on a repository with
+uncommitted changes or on a non-fresh clone. Read what it tells you; its error
+messages are unusually good.
+
+**Your notebook diffs are unreadable in git.** They are, inherently — the file is
+JSON with embedded outputs. Options: `nbstripout` to clear outputs on commit,
+`jupytext` to keep a paired plain-Python version, or move anything that matters
+into `.py` files and keep notebooks for exploration only. There is no wrong
+choice here, but there is a wrong non-choice.
+
+## Before you move on
+
+Node 0.5 asks you to plot the dataframe you cleaned in 0.3. Every plot you make
+from here is evidence about data, and evidence you cannot reproduce is not
+evidence.

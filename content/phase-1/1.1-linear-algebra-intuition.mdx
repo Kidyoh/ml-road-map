@@ -1,0 +1,226 @@
+---
+id: "1.1"
+phase: 1
+order_index: 1
+title: "Linear algebra intuition"
+slug: "linear-algebra-intuition"
+prereqs: ["0.2"]
+status: "published"
+goal: "You can say what a matrix multiplication is doing geometrically, and predict the shape of any product before you run it."
+resources:
+  primary:
+    name: "3Blue1Brown — Essence of Linear Algebra, chapters 1 to 9 and 14"
+    url: "https://www.3blue1brown.com/topics/linear-algebra"
+    type: "video"
+    cost: "free"
+  alt:
+    name: "MIT 18.06 Linear Algebra — Strang, lectures 1 to 3 and 21"
+    url: "https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/"
+    type: "course"
+    cost: "free"
+session:
+  brief: "Implement matrix multiplication three ways and prove they agree. Then use a 2x2 matrix to move a picture around, and read the determinant and eigenvectors off what you see rather than off a formula."
+  difficulty: "medium"
+checklist:
+  - "My three implementations of matrix multiply — triple loop, row-by-column dot products, and sum of outer products — agree with `A @ B` to within 1e-10 on random (50,30) and (30,20) inputs"
+  - "I can state the output shape of `(50,30) @ (30,20)` and of `(3,1) @ (1,4)` before running them, and I was right both times: (50,20) and (3,4)"
+  - "`A @ B` and `B @ A` gave different answers for my test matrices, and I found a non-trivial pair where they are equal"
+  - "Applying [[3,0],[0,0.5]] to the unit square gives a rectangle of area exactly 1.5, and `np.linalg.det` returns 1.5"
+  - "I found a matrix with determinant 0, and confirmed that it maps my 2D grid onto a single line — I plotted it and saw the collapse"
+  - "For A = [[2,1],[1,3]] my computed eigenvalues are 1.38196601 and 3.61803399, they sum to the trace 5.0, and they multiply to the determinant 5.0"
+  - "I plotted the eigenvectors of A before and after applying A, and they landed on the same lines through the origin while every other vector I tried rotated"
+  - "My PCA-by-hand on a 2D cloud gives a first principal component within 1 degree of the direction I would have drawn by eye"
+questions:
+  - prompt: "Explain what `A @ B` does to a vector, in terms of what each matrix does on its own. Then say why the order matters, using a concrete pair of transformations."
+    answer_key: >-
+      A matrix is a linear transformation of space, and the product is the
+      composition of two of them: `(A @ B) @ v` applies B first, then A. The
+      right-hand matrix acts first, which is the opposite of the reading order and
+      is a common source of confusion. Order matters because composing
+      transformations is not commutative in general. Take a 90-degree rotation and
+      a scaling that stretches only the x-axis by 3. Rotate then stretch: a vector
+      pointing up becomes a vector pointing right, and then gets stretched, so it
+      ends up three times as long along x. Stretch then rotate: the up-pointing
+      vector is unaffected by an x-only stretch, then rotates to point right at
+      its original length. Same two operations, different results. The cases where
+      order does not matter are special and worth recognising: two scalings along
+      the same axes, two rotations in 2D, anything with the identity, and a matrix
+      with itself.
+  - prompt: "Your determinant-zero matrix collapsed the plane onto a line. Describe what that means for solving `Ax = b`, and connect it to something you will meet when fitting a linear model."
+    answer_key: >-
+      A determinant of zero means the transformation destroys a dimension — the
+      output lives in a lower-dimensional subspace than the input, so different
+      inputs map to the same output and the transformation cannot be undone. For
+      `Ax = b` there are then two possibilities and no third: if b happens to lie
+      on that line, infinitely many x produce it; if b lies anywhere off it, no x
+      does. Either way there is no unique solution and no inverse. This is exactly
+      what perfect multicollinearity is in a regression. If one feature column is
+      a linear combination of others — a one-hot encoding with every level kept
+      and an intercept, say, or a column duplicated under a different name — then
+      the design matrix is singular, `X^T X` cannot be inverted, and the
+      coefficients are not identified. Near-singularity is worse in practice than
+      exact singularity, because it does not raise: the fit succeeds and returns
+      enormous coefficients that flip sign when you resample the data.
+  - prompt: "The eigenvectors of your matrix landed on the same lines after the transformation while other vectors rotated. Say what that property is useful for, without using the words 'eigenvector' or 'eigenvalue' in your explanation."
+    answer_key: >-
+      They are the directions the transformation does not turn — it only stretches
+      or shrinks along them. That matters because it gives you a coordinate system
+      in which the transformation is as simple as it can possibly be: instead of
+      every axis mixing into every other, each direction just scales by its own
+      factor. Anything you want to do repeatedly becomes easy in that frame,
+      because applying the transformation a hundred times is just raising each
+      scaling factor to the hundredth power. It also tells you what a repeated
+      process converges to: the direction with the largest factor dominates
+      everything else, which is why it describes the steady state of a Markov
+      chain and the ranking behind PageRank. In data, if the transformation is a
+      covariance matrix, these directions are the axes along which the data varies
+      independently, ordered by how much variation each carries — which is the
+      whole of principal component analysis.
+  - prompt: "You will spend the rest of this roadmap reading shape errors. Describe your procedure for debugging one, and say what the shape of a gradient must always be."
+    answer_key: >-
+      The procedure: print the shape of every input to the failing line, then
+      write down the shape you expected the output to be and why. Almost every
+      shape error is one of four things — a transpose you forgot, an axis you
+      summed over that you meant to keep, a batch dimension that got dropped by
+      indexing with an integer instead of a slice, or a dimension of size one that
+      broadcasting silently expanded. Reading the error message for the two shapes
+      it names and asking which of the four it looks like resolves most of them in
+      seconds. The rule about gradients is worth memorising because it catches
+      errors before they happen: the gradient of a scalar with respect to a
+      tensor always has exactly the same shape as that tensor. A loss is a scalar,
+      so the gradient of the loss with respect to a (784, 128) weight matrix is
+      itself (784, 128). If you have computed something with a different shape,
+      you have not computed that gradient, whatever the numbers look like. Node
+      4.1 leans on this constantly.
+reflection_prompt: "Before this node, was matrix multiplication a procedure you executed or a thing that did something? If it has changed, name the moment it changed. If it has not, say what is still missing."
+struggle_signals:
+  - "learner transposes matrices by trial and error until the shapes fit"
+  - "learner can compute a determinant but cannot say what it measures"
+  - "learner treats eigenvectors as a formula rather than as fixed directions"
+  - "learner skips the video series because the topic feels familiar"
+---
+
+## Why this node exists
+
+You do not need to prove theorems about vector spaces. You do need to stop
+treating `A @ B` as an incantation.
+
+Every shape error you will hit in the next six phases is a linear algebra
+question wearing a stack trace. Every time a model's weights are a matrix — which
+is always — the question of what that matrix *does* to its input is the question
+of what the layer means. And PCA in node 3.4, attention in node 4.5 and the whole
+of backpropagation in node 4.1 are unreadable if matrices are just grids of
+numbers to you.
+
+Two hours of 3Blue1Brown is genuinely the highest-return time in this phase. Do
+not skip it on the grounds that you have seen matrices before.
+
+## The session
+
+### 1. Matrix multiply, three ways
+
+Implement `A @ B` yourself, three different ways, and check all three against
+numpy with `np.allclose`:
+
+1. **The triple loop.** `out[i, j] = sum over k of A[i, k] * B[k, j]`.
+2. **Row by column.** Each output entry is the dot product of a row of A with a
+   column of B. One loop less.
+3. **Sum of outer products.** `out = sum over k of outer(A[:, k], B[k, :])`.
+
+The third one is the one worth sitting with. It says the product is a sum of rank-
+one pieces, one per shared dimension — and that is the sentence that makes the
+singular value decomposition make sense later.
+
+### 2. Shapes, predicted
+
+Write down the output shape *before* running each:
+
+```python
+(50, 30) @ (30, 20)
+(3, 1) @ (1, 4)
+(3,) @ (3,)
+(5, 3) @ (5, 3)          # what happens, and why?
+A.T @ A                  # for A of shape (100, 5)
+```
+
+The inner dimensions must match and they vanish; the outer ones survive. That is
+the whole rule.
+
+### 3. Transformations you can see
+
+Take a grid of points covering the unit square, apply a 2x2 matrix, and plot
+before and after. Try each of:
+
+```python
+np.array([[3, 0], [0, 0.5]])       # scaling
+np.array([[1, 1], [0, 1]])         # shear
+np.array([[0, -1], [1, 0]])        # rotation
+np.array([[2, 4], [1, 2]])         # determinant zero - watch it collapse
+```
+
+For each, compute the determinant first and predict what will happen to the area.
+Then look.
+
+The fourth one is the important one. Plot it and watch two dimensions become one.
+
+### 4. Eigenvectors, seen rather than solved
+
+For `A = [[2, 1], [1, 3]]`:
+
+```python
+w, v = np.linalg.eig(A)
+```
+
+Check that the eigenvalues sum to the trace (5.0) and multiply to the determinant
+(5.0). Then plot each eigenvector, apply A to it, and plot the result. It should
+land on the same line through the origin, scaled.
+
+Try five other vectors. They will not.
+
+### 5. PCA by hand
+
+Generate a 2D cloud that is obviously elongated in some direction:
+
+```python
+rng = np.random.default_rng(11)
+base = rng.normal(size=(500, 2)) * [3.0, 0.6]
+theta = np.deg2rad(30)
+R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+cloud = base @ R.T
+```
+
+Centre it, compute the covariance matrix, take its eigenvectors, and plot the
+principal direction over the scatter. It should point along the long axis — which
+you rotated to 30 degrees, so you know the answer.
+
+That is PCA. Node 3.4 adds vocabulary and nothing else.
+
+## Common walls
+
+**Your triple loop disagrees with numpy in the last decimal.** That is floating
+point summation order, not a bug. `np.allclose` exists for this. If the
+disagreement is larger than about 1e-10, it is a bug.
+
+**`(3,) @ (3,)` returns a scalar and confuses you.** A 1D array in numpy is
+neither a row nor a column; `@` between two of them is the dot product. This
+ambiguity is the source of an enormous number of shape bugs. Being explicit with
+`(3, 1)` and `(1, 3)` costs nothing and prevents them.
+
+**Your eigenvectors look wrong because they point the other way.** An eigenvector
+times minus one is the same eigenvector. Only the line matters, not the arrow.
+
+**Your PCA direction is 90 degrees off.** You took the eigenvector with the
+smaller eigenvalue. `np.linalg.eig` does not sort; `np.linalg.eigh` for symmetric
+matrices returns ascending order, so the principal direction is the *last*
+column, not the first.
+
+**Your covariance matrix is the wrong shape.** `np.cov` assumes variables are
+rows, not columns. Pass `rowvar=False` for the usual (n_samples, n_features)
+layout, or transpose. Getting this wrong on a (500, 2) cloud gives you a 500x500
+matrix, which is a memorable way to learn it.
+
+## Before you move on
+
+Node 1.2 differentiates composed functions, and node 1.5 uses those derivatives to
+walk downhill. Both of them treat the gradient as a vector that points somewhere
+in the space you have just spent this node learning to see.

@@ -1,0 +1,231 @@
+---
+id: "3.3"
+phase: 3
+order_index: 3
+title: "Clustering"
+slug: "clustering"
+prereqs: ["3.1"]
+status: "published"
+goal: "You can cluster data and then honestly assess whether the clusters mean anything — including concluding that they do not."
+resources:
+  primary:
+    name: "scikit-learn User Guide — Clustering, sections 2.3.1 to 2.3.7 and 2.3.10"
+    url: "https://scikit-learn.org/stable/modules/clustering.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "StatQuest — K-means clustering, clearly explained"
+    url: "https://www.youtube.com/watch?v=4b5d3muPQmA"
+    type: "video"
+    cost: "free"
+session:
+  brief: "Cluster handwritten digits without their labels and see how close you get. Then cluster pure noise, watch k-means confidently produce clusters anyway, and work out what would have told you the difference."
+  difficulty: "medium"
+checklist:
+  - "load_digits gives me (1797, 64), and after standardizing, k-means with k=10 and random_state=0 gives inertia 69405.5"
+  - "That clustering's adjusted Rand index against the true digit labels is 0.4679 — better than chance but far from recovering the digits"
+  - "Its silhouette score is 0.1471, which I can describe as weak in absolute terms even though the clusters are genuinely informative"
+  - "My inertia-versus-k plot decreases monotonically with no clear elbow, and I can say why inertia can never increase with k"
+  - "My silhouette-versus-k values are approximately k=2: 0.108, k=8: 0.125, k=10: 0.147, k=15: 0.155, k=20: 0.154"
+  - "Silhouette peaks near k=15, not k=10, even though there are exactly 10 digits — I recorded this and can explain it"
+  - "I ran k-means on pure Gaussian noise with k=5 and it returned 5 clusters with a positive silhouette score, which I recorded"
+  - "I ran k-means with 5 different random_state values and recorded how much the adjusted Rand index between pairs of runs varies"
+  - "I ran DBSCAN on the same data and it labelled some points as noise (-1), which k-means structurally cannot do"
+questions:
+  - prompt: "Your inertia curve had no clear elbow and your silhouette peaked at k=15 when there are exactly 10 digits. Explain both, and say what you would actually do to choose k."
+    answer_key: >-
+      Inertia is the total squared distance from each point to its cluster centre,
+      and adding a centre can only reduce it — at k equal to the number of points
+      it reaches zero. So the curve always decreases and the elbow is a
+      subjective bend rather than a computed answer; on high-dimensional data
+      where distances concentrate, the bend often does not exist at all.
+      Silhouette peaking at 15 rather than 10 is not a mistake: silhouette
+      measures geometric separation, and several digits genuinely occupy multiple
+      distinct clusters in pixel space — fours and nines written in different
+      styles, ones with and without serifs — so splitting them produces tighter,
+      better-separated groups. The number of clusters that best describes the
+      geometry is simply not the number of semantic classes, and there is no
+      reason it should be. What I would actually do: choose k from what the
+      clusters are for. If they feed a marketing campaign with capacity for four
+      segments, k is four. If they feed a downstream model, choose the k that
+      maximises the downstream metric. Internal indices like silhouette are for
+      sanity-checking a choice, not for making one.
+  - prompt: "K-means produced five clusters from pure Gaussian noise with a positive silhouette score. Explain why, and describe how you would tell a real cluster structure from this."
+    answer_key: >-
+      K-means is not a test for whether clusters exist; it is a procedure that
+      partitions data into k groups minimising within-group variance, and that
+      procedure always succeeds. A cloud of Gaussian noise partitions perfectly
+      well into five wedges, each of which is genuinely more compact than the
+      whole, so silhouette is positive. Nothing in the algorithm or in the score
+      can express "there is no structure here". To tell the difference you need a
+      comparison against the null. The gap statistic does this directly, comparing
+      within-cluster dispersion against what you would get on uniform data over
+      the same range. More practically: run the clustering on shuffled or
+      simulated null data and compare the scores — if your real data's silhouette
+      is close to noise's, you have found nothing. Also check stability, since
+      real structure is recovered consistently across seeds and subsamples while
+      noise partitions differently each time, and check whether the clusters
+      differ on variables you did not cluster on, which is the strongest evidence
+      that they correspond to something outside the geometry.
+  - prompt: "An adjusted Rand index of 0.4679 against the true digits — is that good? Justify your answer, and explain what the 'adjusted' is correcting for."
+    answer_key: >-
+      It depends entirely on what you expected. As a recovery of the ten digit
+      classes it is poor — you would not use these clusters as digit predictions
+      when a supervised model reaches well over 0.95 accuracy on the same data. As
+      evidence that unsupervised structure in raw pixels corresponds substantially
+      to semantic identity, having never been shown a single label, it is
+      remarkable: a random assignment scores about 0.0. So the honest reading is
+      that the clusters capture real structure and are not a substitute for
+      labels. The "adjusted" corrects for chance agreement. The plain Rand index
+      counts pairs of points that two labellings agree about, and with many
+      clusters a large fraction of pairs are trivially in different groups under
+      both, so the raw index is high even for random assignments and rises with
+      the number of clusters. The adjusted version subtracts the expected value
+      under a random model and rescales, so 0 means chance and 1 means identical,
+      which makes it comparable across different numbers of clusters.
+  - prompt: "You now have ten clusters of customers or digits. Describe how you would decide whether they are worth anything to somebody, without using any internal clustering metric."
+    answer_key: >-
+      Externally, in three ways. First, describe them: for each cluster, what is
+      distinctive about it relative to the population — which features are far
+      from the overall mean, and can you name the cluster in a sentence a
+      non-technical colleague would recognise? A cluster you cannot describe is a
+      cluster nobody can act on. Second, check they differ on something you did
+      not cluster on. If you clustered on purchase behaviour and the clusters also
+      differ sharply in support-ticket rate or retention, the structure is real
+      and generalises beyond the variables you happened to choose. Third, and
+      decisively, check that they change a decision: would you actually send these
+      groups different messages, allocate different budgets, or route them
+      differently? If the honest answer is that everyone gets the same treatment
+      anyway, the clustering is an artefact of a project rather than an input to
+      one. Stability across seeds and across time periods is the fourth thing
+      worth testing, because a segmentation that reshuffles every quarter cannot
+      be operationalised.
+reflection_prompt: "Clustering produces an answer no matter what you feed it. Where else in your work does a tool always return something that looks like a result?"
+struggle_signals:
+  - "learner picks k from an elbow that is not there"
+  - "learner treats cluster labels as though they were discovered classes"
+  - "learner never checks whether the clusters are stable across seeds"
+  - "learner clusters unscaled features and gets one dominant dimension"
+---
+
+## Why this node exists
+
+Clustering always works. That is the problem.
+
+Every clustering algorithm will return clusters from any input, including data
+with no structure whatsoever, and every internal metric will report a number.
+Nothing in the standard workflow says "there is nothing here", so the
+responsibility for noticing falls entirely on you.
+
+This node makes you look at that directly, by clustering something with known
+structure and then clustering something with none.
+
+## The session
+
+### 1. Digits, without their labels
+
+```python
+from sklearn.datasets import load_digits
+X = StandardScaler().fit_transform(load_digits().data)   # (1797, 64)
+KMeans(n_clusters=10, random_state=0, n_init=10).fit(X)
+```
+
+| | |
+|---|---|
+| Inertia | 69405.5 |
+| Silhouette | 0.1471 |
+| Adjusted Rand index vs true digits | **0.4679** |
+
+Never having seen a label, k-means recovers a substantial amount of the digit
+structure. Also, 0.4679 is nowhere near enough to use as a classifier. Both
+readings are correct and question 3 asks you to hold them together.
+
+### 2. Choosing k, and failing to
+
+Sweep k and plot both:
+
+| k | Inertia | Silhouette |
+|---|---|---|
+| 2 | 100427.3 | 0.108 |
+| 3 | 93839.4 | 0.105 |
+| 5 | 85099.6 | 0.103 |
+| 8 | 75181.3 | 0.125 |
+| 10 | 69405.5 | 0.147 |
+| 15 | 60273.6 | **0.155** |
+| 20 | 54101.7 | 0.154 |
+
+Inertia falls smoothly with no elbow to find. Silhouette peaks at **15**, not at
+10, even though the data contains exactly ten digits.
+
+That is not a bug. Question 1 asks you to explain it, and the explanation is more
+useful than any rule for picking k.
+
+### 3. Cluster nothing
+
+```python
+noise = rng.normal(size=(1797, 64))
+km = KMeans(n_clusters=5, random_state=0, n_init=10).fit(noise)
+silhouette_score(noise, km.labels_)      # positive. every time.
+```
+
+There is no structure. K-means finds five clusters. The silhouette is positive.
+
+Record the number and put it next to your real one. If they are close, your real
+clustering has found nothing either — and that comparison is the single most
+useful habit in this node.
+
+### 4. Stability
+
+Run k-means with five different `random_state` values and compute the adjusted
+Rand index between each pair of runs. Real structure is recovered consistently.
+Noise is not.
+
+### 5. A different algorithm, with a different assumption
+
+```python
+DBSCAN(eps=..., min_samples=...)
+```
+
+DBSCAN finds dense regions of arbitrary shape, decides the number of clusters
+itself, and — crucially — labels some points `-1`, meaning *not in any cluster*.
+
+K-means structurally cannot do that. Every point gets assigned, including the
+ones that belong to nothing. That difference matters far more than the accuracy
+difference between the two.
+
+## What each algorithm assumes
+
+| Algorithm | Assumes | Fails when |
+|---|---|---|
+| K-means | round, similar-sized, similar-density clusters | elongated or nested shapes, very different sizes |
+| DBSCAN | clusters are dense regions separated by sparse ones | densities vary between clusters |
+| Hierarchical | a tree of nested groupings is meaningful | you need flat clusters and must cut arbitrarily |
+| Gaussian mixture | each cluster is a Gaussian blob | heavy tails, non-elliptical shapes |
+
+Choosing an algorithm is choosing an assumption about shape. K-means being the
+default is a historical accident, not a recommendation.
+
+## Common walls
+
+**One feature dominates every cluster.** You did not scale. K-means minimises
+Euclidean distance, so a column measured in thousands drowns out one measured in
+units — node 1.5's conditioning lesson in a new place.
+
+**Your inertia curve has no elbow.** That is the normal case in high dimensions,
+not a failure of your plotting. Distances concentrate as dimension rises, which
+also depresses the silhouette — 0.147 is a low number in absolute terms and is
+not the disaster it looks like for 64-dimensional data.
+
+**Your clusters change completely between runs.** With `n_init=10` k-means takes
+the best of ten initialisations, so genuine instability across seeds means the
+structure is weak. Believe it.
+
+**DBSCAN labels everything as noise, or everything as one cluster.** `eps` is
+extremely sensitive and has no good default. Plot the distance to each point's
+k-th nearest neighbour, sort it, and look for the knee.
+
+## Before you move on
+
+Node 3.4 reduces dimensions, which is often done *before* clustering to make
+distances behave. It also carries Appendix B's hard rule about t-SNE, which is
+the most-violated piece of advice in this phase.

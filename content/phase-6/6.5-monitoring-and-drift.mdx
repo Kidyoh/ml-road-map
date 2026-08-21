@@ -1,0 +1,233 @@
+---
+id: "6.5"
+phase: 6
+order_index: 5
+title: "Monitoring and drift"
+slug: "monitoring-and-drift"
+prereqs: ["6.2", "6.4"]
+status: "published"
+goal: "You would find out that your model had degraded from a dashboard rather than from a complaint."
+resources:
+  primary:
+    name: "Evidently — documentation, presets and drift detection"
+    url: "https://docs.evidentlyai.com/"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "Google Cloud — MLOps: continuous delivery and automation pipelines"
+    url: "https://cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning"
+    type: "article"
+    cost: "free"
+session:
+  brief: "Instrument the deployed service from node 6.2, then inject three different kinds of failure into the traffic — a shifted feature, a broken upstream column, and a genuine change in the relationship — and find out which of your monitors catches which. At least one of them will not be caught by any of them, and that is the point."
+  difficulty: "hard"
+checklist:
+  - "My dashboard shows request volume, latency percentiles, error rate and prediction distribution over time"
+  - "I established a baseline window from the training data and can compare any live window against it"
+  - "I injected a shifted feature distribution and my drift monitor fired — I recorded the statistic and the threshold"
+  - "I injected a broken upstream column, such as all values becoming zero or null, and recorded which monitor caught it and how fast"
+  - "I injected a change in the target relationship WITHOUT changing the feature distributions, and confirmed no input-drift monitor caught it"
+  - "I can state how long it would take me to learn about that last failure in reality, and what my label delay is"
+  - "I computed PSI or KS for at least 3 features and can say what value I would alert on and why that value"
+  - "My alerting has a defined threshold and I tuned it against replayed historical data so I know its false-alarm rate"
+  - "I have at least one alert that fires on missing data rather than on bad data — a pipeline that stopped, not a model that degraded"
+  - "I wrote down what a person should actually do when each alert fires, and none of the answers is 'investigate'"
+questions:
+  - prompt: "You injected a change in the target relationship without changing any input distribution and no drift monitor caught it. Explain why, and say what would have caught it."
+    answer_key: >-
+      Input drift monitors compare the distribution of the features against a
+      baseline. If the features are distributed exactly as before and only the
+      relationship between features and target has changed — concept drift — then
+      by construction there is nothing in the inputs to detect. The same customers
+      with the same attributes now behave differently, perhaps because a
+      competitor launched, a policy changed, or fraudsters adapted to the model.
+      Nothing about the inputs is unusual. What catches it is performance
+      monitoring, which requires labels, and labels arrive late: fraud is
+      confirmed by a chargeback weeks later, churn is only known after the
+      subscription lapses, a loan default takes months. That delay is the crux,
+      and knowing your own label delay is the single most important number in
+      this node — it is the minimum time you can be wrong without knowing. Partial
+      mitigations: monitor the prediction distribution, which often shifts even
+      when inputs do not; monitor proxy outcomes available sooner, such as
+      analyst overturn rate on flagged cases; and deliberately hold out a small
+      random sample from the model's decisions so you keep getting unbiased
+      labels, which is the same instrument node 6.4 needed for feedback loops.
+  - prompt: "Explain PSI or KS in your own words, and say why a raw p-value is a poor alerting threshold at production volume."
+    answer_key: >-
+      Both compare two distributions. The Kolmogorov-Smirnov statistic is the
+      largest gap between the two cumulative distribution functions — a single
+      number summarising how far apart they are at their worst point. The
+      Population Stability Index buckets the values, compares the proportion in
+      each bucket between baseline and current, and sums a weighted log ratio;
+      conventionally under 0.1 is stable, 0.1 to 0.2 is worth watching, and above
+      0.25 is a material shift. A p-value is a poor threshold because it depends
+      on sample size as well as on effect size. With a hundred thousand requests a
+      day, a statistically significant difference is guaranteed — a shift far too
+      small to affect any prediction will produce a vanishing p-value, so the
+      alert fires constantly and gets muted, which is worse than not having it.
+      This is node 1.4's lesson arriving in production: significance is not
+      importance. Alert on effect size instead, using PSI or the KS statistic
+      directly rather than its p-value, with a threshold you have tuned against
+      replayed history so you know its false-alarm rate before you deploy it.
+  - prompt: "One of your alerts fires on missing data rather than on bad data. Explain why that class of alert usually matters more."
+    answer_key: >-
+      Because the most common production failure is not a subtly degraded model,
+      it is a pipeline that stopped. An upstream job fails, a schema changes, a
+      credential expires, a partition is not written — and the service keeps
+      serving happily on stale features, or the monitoring itself goes quiet. The
+      dangerous property is that absence looks like health on most dashboards:
+      no data means no errors, no anomalies and no alerts, so a system that has
+      stopped receiving traffic can appear to be the best-behaved system you own.
+      Every genuine monitoring setup therefore needs freshness and volume checks —
+      alert if fewer than N predictions in the last hour, alert if the feature
+      table's newest row is older than expected, alert if any monitor has not
+      reported. This is why heartbeat and dead-man's-switch alerts exist, and it
+      is the failure mode people learn about by living through it, usually after a
+      weekend.
+  - prompt: "Your alerts have documented responses and none of them says 'investigate'. Give one, and explain why 'investigate' is not an acceptable runbook entry."
+    answer_key: >-
+      An example: "Fraud PR AUC on labelled cases has dropped below 0.85 for two
+      consecutive days. Check whether the label pipeline is delayed by querying
+      the label lag dashboard. If labels are current, roll back to the previous
+      model version with the documented rollback command and open an incident. If
+      labels are delayed, suppress this alert until they catch up and note it in
+      the incident channel." The problem with "investigate" is that it converts an
+      alert into a decision the responder has to make from scratch, at whatever
+      hour it fires, usually with less context than the person who wrote the
+      alert had. That guarantees slow, inconsistent responses and it is the main
+      reason alerts get ignored — an alert that has never once told you what to do
+      trains you to close it. The discipline that follows is that if you cannot
+      write a specific action, you probably should not have the alert: make it a
+      dashboard panel you look at deliberately instead. Alerts should be
+      actionable, rare, and each one should end in a decision.
+reflection_prompt: "What is your label delay for the fraud problem — how long until you know a prediction was wrong? What would you build if it were ten times longer?"
+struggle_signals:
+  - "learner monitors only accuracy and has no labels"
+  - "learner alerts on p-values at high volume"
+  - "learner has no alert for missing data"
+  - "learner writes alerts with no defined response"
+  - "learner never tunes the alert threshold against history"
+---
+
+## Why this node exists
+
+A deployed model degrades. Not because anything broke, but because the world it
+was trained on stops resembling the world it is running in — and unlike a service
+outage, this failure produces no errors, no exceptions and no page.
+
+The distinction that organises this node: **input drift you can detect
+immediately, concept drift you cannot detect until labels arrive.** Most
+monitoring effort goes into the first, and most damage comes from the second.
+
+## The session
+
+Node 6.2's deployed service. Node 6.4's pipeline behind it.
+
+### 1. The dashboard
+
+Four panels, minimum:
+
+| Panel | Catches |
+|---|---|
+| Requests per minute | traffic loss, spikes |
+| Latency p50 / p95 / p99 | degradation under load |
+| Error rate by status code | client and server problems |
+| Prediction distribution over time | model behaviour changing |
+
+That last one is the one people leave out and the one that most often gives the
+earliest warning. A fraud model whose mean predicted probability drifts from
+0.004 to 0.04 is telling you something before any label arrives.
+
+### 2. A baseline to compare against
+
+Save the training data's feature distributions. Every live window is compared
+against that reference.
+
+Without a baseline you have a chart. With one you have a monitor.
+
+### 3. Three injections, three different lessons
+
+**Injection A — shifted feature.** Multiply `amount` by 3 in incoming traffic.
+Your drift monitor should fire. Record the statistic and the threshold.
+
+**Injection B — broken upstream.** Set `distinct_cards_on_device_24h` to 0 for
+every request, as though a join silently started failing. Which monitor catches
+it, and how fast? A null-rate or cardinality check usually beats a distribution
+test here.
+
+**Injection C — concept drift.** Change the *relationship* — make fraud happen at
+different hours — while leaving every input distribution exactly as it was.
+
+**No input-drift monitor will catch C.** That is the point of the exercise, and
+question 1 asks what would.
+
+### 4. Quantify drift properly
+
+Compute PSI or the KS statistic for at least three features.
+
+| PSI | Conventional reading |
+|---|---|
+| < 0.1 | stable |
+| 0.1 – 0.25 | moderate, worth watching |
+| > 0.25 | material shift |
+
+Then pick your alerting threshold and **tune it against replayed history**, so you
+know its false-alarm rate before it wakes anyone up.
+
+Do not alert on p-values. Question 2 explains why, and it is node 1.4's lesson
+arriving in production.
+
+### 5. Alert on absence
+
+At least one alert that fires when data stops arriving:
+
+- fewer than N predictions in the last hour
+- the newest row in the feature table is older than expected
+- a monitor has not reported
+
+Question 3 argues that this class matters more than the clever ones, because a
+stopped pipeline looks exactly like a healthy quiet system.
+
+### 6. Write the runbook
+
+For every alert: **what should a person do?**
+
+Not "investigate". A specific first action, a specific check, and a specific
+decision. If you cannot write one, make it a dashboard panel instead of an alert.
+
+## The taxonomy worth remembering
+
+| Kind | What changed | Detectable from inputs | Typical cause |
+|---|---|---|---|
+| Input drift | P(X) | yes, immediately | new market, seasonality, new source |
+| Concept drift | P(y given X) | **no** | adversaries adapt, policy change |
+| Label drift | P(y) | only with labels | base rate moved |
+| Data quality | schema, nulls, ranges | yes, immediately | broken upstream job |
+| Training-serving skew | features computed differently | sometimes | two code paths for one feature |
+
+That last row deserves attention: it is not drift at all, it is a bug, and it is
+extremely common. The feature was computed one way in the training pipeline and
+another way in the service. The fix is to share the code, which is what feature
+stores exist to enforce.
+
+## Common walls
+
+**Your drift alert fires every day.** Threshold too tight, or your baseline
+window is too narrow to represent normal variation. Include a full weekly cycle
+in the baseline.
+
+**You cannot monitor accuracy because you have no labels.** Correct, and that is
+the situation for most production models most of the time. Monitor what you have
+— inputs, predictions, proxies — and know your label delay.
+
+**Everything drifts on the day you deploy.** Your baseline is the training data
+and the world has moved since it was collected. Rebaseline against recent
+production traffic, and treat the gap you just found as the real finding.
+
+**Your monitoring costs more than your serving.** Sample. You do not need every
+request to detect a distribution shift; a few thousand a day is plenty.
+
+## Before you move on
+
+Node 6.6 puts all of phase 6 on one page and asks where it breaks first. You now
+have the pieces; the last node is about seeing them as one system.

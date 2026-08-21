@@ -1,0 +1,223 @@
+---
+id: "3.5"
+phase: 3
+order_index: 5
+title: "Anomaly detection"
+slug: "anomaly-detection"
+prereqs: ["3.3"]
+status: "published"
+goal: "You can find outliers and decide, case by case, whether each one is an error, a rare event, or the thing you were looking for."
+resources:
+  primary:
+    name: "scikit-learn User Guide — Novelty and Outlier Detection"
+    url: "https://scikit-learn.org/stable/modules/outlier_detection.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "PyOD documentation — Benchmarks and Model Selection"
+    url: "https://pyod.readthedocs.io/en/latest/"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Run three unsupervised outlier detectors on the fraud data, then compare what they found against the labels you were not supposed to use. Then run them on the sensor readings from node 0.5, where the outliers are a broken instrument rather than a crime."
+  dataset: "/datasets/fraud-transactions.csv"
+  difficulty: "medium"
+checklist:
+  - "I ran IsolationForest, LocalOutlierFactor and EllipticEnvelope on fraud-transactions.csv with contamination set to the true rate 0.00444"
+  - "For each detector I computed what share of the 222 real frauds it flagged, and recorded all three numbers"
+  - "Every one of the three performs far worse than the supervised model from node 2.4, and I can state the ratio"
+  - "I ran the same detectors with contamination set to 0.01 and 0.05 and recorded how the flagged count changed — it scales with contamination, not with the data"
+  - "On sensor-readings.csv, my detector flags a large share of the 532 exact-zero readings from sensor S-03"
+  - "I classified at least 20 flagged points by hand into 'data error', 'rare but real', and 'the thing I was looking for'"
+  - "I can state, for the sensor data, which of those three categories the zeros belong to and what I would do with them"
+  - "I compared a univariate rule — z-score above 3 on amount alone — against the multivariate detectors, and recorded which frauds only the multivariate ones caught"
+questions:
+  - prompt: "Your unsupervised detectors did far worse than the supervised model from node 2.4. Explain why that is expected, and describe the situation where you would use the unsupervised one anyway."
+    answer_key: >-
+      They are answering different questions. The supervised model was told which
+      222 transactions were fraudulent and learned what distinguishes them; the
+      unsupervised detectors were told nothing and can only find points that are
+      unusual. Unusual and fraudulent are not the same set. A large legitimate
+      purchase is unusual and fine; a carefully sized fraudulent purchase designed
+      to look ordinary is not unusual at all, and it is precisely the fraud that
+      matters most. So the unsupervised methods find the tails of the feature
+      distribution, and the label lives only partly in those tails. You would use
+      unsupervised detection anyway in three situations: when you have no labels
+      at all and need somewhere to start, which is the common case at the
+      beginning of a project; when the thing you are looking for is new and by
+      definition absent from historical labels, such as a novel attack pattern
+      that a supervised model has never seen; and as a monitoring signal rather
+      than a decision, where "this input is unlike anything in training" is worth
+      knowing regardless of the label, which is exactly what node 6.5 uses.
+  - prompt: "Changing `contamination` from 0.00444 to 0.05 changed how many points were flagged. Explain what that parameter actually does, and what it means that the data had no say in it."
+    answer_key: >-
+      Contamination sets the threshold on the anomaly score, by telling the
+      detector what fraction of the data to declare anomalous. The detector
+      computes a continuous score for every point; contamination just picks the
+      quantile at which to cut. So it does not change what the model believes, it
+      changes how many of the most-suspicious points you choose to act on — set it
+      to 0.05 and exactly 5% get flagged, whatever the data looks like. The
+      implication is that these methods do not tell you how many anomalies there
+      are. They rank, and you decide where to cut, which means the "number of
+      anomalies found" is a number you chose rather than a discovery. That is
+      worth being blunt about, because the output format encourages the opposite
+      reading. The useful consequence is that you should treat the score as the
+      real output and pick the cut from capacity or cost, exactly as node 2.4 did
+      with the review queue — the top-K framing is more honest here than a binary
+      flag.
+  - prompt: "For each of the three categories — data error, rare but real, and the thing you were looking for — describe a point you found and what you would do with it."
+    answer_key: >-
+      A data error: sensor S-03's exact zeros from node 0.5. There is no
+      temperature of exactly 0.000 recorded 532 times; it is a dropout written as
+      a number. The action is to convert them to missing, add an indicator column
+      recording that the sensor failed, and file a bug against the ingestion
+      pipeline so the default stops being written. Rare but real: a legitimate
+      customer buying a several-thousand-pound item, or a genuine three-standard-
+      deviation temperature during a heatwave. These are correct data and must not
+      be removed — deleting them teaches the model that the tail does not exist,
+      which is exactly the population it will later be asked about. The action is
+      to keep them, and possibly to transform the feature so they do not dominate,
+      or use a model robust to them. The thing you were looking for: a fraudulent
+      transaction, an intrusion, a failing machine. The action is to route it to
+      whoever handles it. The important discipline is that these three look
+      identical in the output — they are all just high anomaly scores — and only
+      looking at them individually separates them.
+  - prompt: "A univariate z-score rule on `amount` and a multivariate detector flagged overlapping but different sets. Explain what a multivariate method can see that a per-column rule cannot."
+    answer_key: >-
+      A per-column rule can only find points that are extreme in some single
+      dimension. A multivariate method finds points that are unusual in
+      combination while being entirely ordinary in every individual column — a
+      transaction of a normal amount, at a normal hour, in a normal category, but
+      where that particular combination almost never occurs. A small purchase at
+      3am in a foreign country from a device that has seen five different cards is
+      unremarkable on every axis separately and highly unusual jointly. That is
+      the whole reason to bother: in more than a couple of dimensions, most of the
+      probability mass is not in the tails of any individual variable, so
+      per-column screening misses the majority of genuinely anomalous points. The
+      cost is interpretability — a z-score explains itself and an isolation forest
+      score does not — and the fix is to keep both, using the univariate rules for
+      data-quality checks where you want an explanation, and the multivariate
+      detector for the cases that only exist jointly.
+reflection_prompt: "Of the points you classified by hand, which category was hardest to assign, and what extra information would have made it obvious?"
+struggle_signals:
+  - "learner deletes outliers without classifying them"
+  - "learner reads contamination as an estimate rather than a choice"
+  - "learner expects unsupervised detection to match a supervised model"
+  - "learner never looks at an individual flagged point"
+---
+
+## Why this node exists
+
+Outliers are three completely different things wearing the same clothes: broken
+data, genuine rare events, and the target you are hunting. They produce identical
+output from every detector, and the only way to tell them apart is to look at
+them.
+
+The reflex to reach for is not "remove outliers". It is "find out what each one
+is". Deleting a legitimate extreme value teaches your model that the tail does
+not exist — and the tail is often where the decisions are.
+
+## The session
+
+### 1. Three detectors, on data where you know the answer
+
+[`fraud-transactions.csv`](/datasets/fraud-transactions.csv) — 50,000 rows, 222
+frauds, rate 0.00444.
+
+```python
+IsolationForest(contamination=0.00444, random_state=0)
+LocalOutlierFactor(contamination=0.00444)
+EllipticEnvelope(contamination=0.00444, random_state=0)
+```
+
+Fit each **without the label**. Then, and only then, check what fraction of the
+222 real frauds each one caught.
+
+All three will be far behind the supervised model from node 2.4, which reached
+about 0.93 PR AUC. Record the ratio. Question 1 asks why this is expected rather
+than disappointing.
+
+### 2. The parameter that is not a discovery
+
+Run IsolationForest with `contamination` at 0.00444, 0.01 and 0.05.
+
+The number of flagged points is 222, 500 and 2,500 — which is to say, exactly
+what you asked for, every time. The data had no vote.
+
+This is worth internalising: these methods **rank**, and you choose the cut. The
+"number of anomalies detected" is your parameter reported back to you.
+
+Better output: keep the scores, sort them, and use the top-K framing from node
+2.4.
+
+### 3. Outliers that are a broken machine
+
+[`sensor-readings.csv`](/datasets/sensor-readings.csv) from node 0.5 — 12,000
+readings, 532 of them exactly 0.000, all from sensor S-03.
+
+Run a detector. It should find them, because they are genuinely far from
+everything else.
+
+Now: is a reading of 0.000 an anomaly to investigate, or a missing value written
+as a number? Question 3 asks. The answer determines whether you route it to an
+analyst or file a bug against the pipeline.
+
+### 4. Classify twenty by hand
+
+Take twenty flagged points from either dataset and put each in one of three
+buckets:
+
+| Category | What it is | What to do |
+|---|---|---|
+| **Data error** | the measurement is wrong | fix upstream, mark missing, add an indicator |
+| **Rare but real** | correct and unusual | keep it — it is the population |
+| **The target** | what you were hunting | route it to whoever acts on it |
+
+This is the node. Every detector in existence returns a score; only you can
+assign the category.
+
+### 5. One column versus many
+
+Compare a plain `|z| > 3` rule on `amount` against the multivariate detectors.
+Find the frauds only the multivariate methods caught, and look at them — they
+will be ordinary on every individual axis.
+
+## Which detector assumes what
+
+| Method | Assumes | Struggles with |
+|---|---|---|
+| z-score / IQR | one column at a time, roughly symmetric | anything jointly unusual |
+| EllipticEnvelope | data is a single Gaussian blob | multi-modal or skewed data |
+| IsolationForest | anomalies are easy to isolate with few splits | very high dimensions |
+| LocalOutlierFactor | anomalies are in locally sparse regions | clusters of differing density |
+| Autoencoder | normal data reconstructs well | needs a lot of clean data |
+
+As in node 3.3, choosing a method is choosing an assumption. The sensor data is
+bimodal, which is precisely where EllipticEnvelope's single-blob assumption
+fails — and it is a good exercise to watch it fail.
+
+## Common walls
+
+**LocalOutlierFactor has no `predict`.** By default it is transductive — it only
+labels the data it was fitted on. Set `novelty=True` to get a `predict` for new
+data, and note that you then must not call `fit_predict`.
+
+**Everything is flagged as an outlier.** Unscaled features again. Distance-based
+methods need node 3.2's treatment.
+
+**Your detector finds the fraud perfectly.** Check that you have not left the
+label in the feature matrix. This happens more often than it should and it always
+feels great for a few minutes.
+
+**The zeros in the sensor data are not flagged.** They are a spike at a single
+value rather than a diffuse tail, and some methods handle that poorly. A value
+count catches it instantly where a distance-based detector may not — which is a
+good argument for keeping the simple checks from node 0.5 alongside the clever
+ones.
+
+## Before you move on
+
+That completes phase 3 and everything this roadmap will teach you about tabular
+data with classical models. Phase 4 starts from an autograd engine you write
+yourself, and node 4.1 is explicitly not skippable — it uses the gradient checker
+you built back in node 1.2.

@@ -1,0 +1,248 @@
+---
+id: "1.5"
+phase: 1
+order_index: 5
+title: "Optimization: gradient descent by hand"
+slug: "gradient-descent-by-hand"
+prereqs: ["1.2"]
+status: "published"
+goal: "You can implement gradient descent from scratch, make it diverge deliberately, and explain what the learning rate traded away — including the case where the algorithm is fine and your features are not."
+resources:
+  primary:
+    name: "An overview of gradient descent optimization algorithms — Sebastian Ruder"
+    url: "https://www.ruder.io/optimizing-gradient-descent/"
+    type: "article"
+    cost: "free"
+  alt:
+    name: "Dive into Deep Learning — Optimization Algorithms, sections 12.1 to 12.6"
+    url: "https://d2l.ai/chapter_optimization/index.html"
+    type: "book"
+    cost: "free"
+session:
+  brief: "Minimise a function by hand, then break it on purpose at a learning rate of 10. Then fit a linear model to two features whose scales differ by a factor of 20,000, watch gradient descent appear to be broken, and discover it was never the algorithm's fault."
+  dataset: "/datasets/scaling-trap.csv"
+  difficulty: "medium"
+checklist:
+  - "For f(x) = x^2 starting at x = 1, my gradient descent with lr = 0.1 reaches |x| < 1e-4 within 50 steps"
+  - "At lr = 1.0 exactly, my x oscillates between 1 and -1 forever and never converges — I ran 50 steps and confirmed it never moved toward zero"
+  - "At lr = 10 my values exceed 1e12 within 15 steps, and I have the printed sequence showing them growing"
+  - "I can derive why the boundary is exactly lr = 1.0 for f(x) = x^2, from the update rule x_next = x(1 - 2*lr)"
+  - "scaling-trap.csv loads as 2000 rows, and the standard deviations of x1 and x2 are about 0.98 and 19,408 — a ratio near 19,816"
+  - "My closed-form least squares solution is intercept 11.9591, w1 3.0061, w2 0.00040077, to four significant figures"
+  - "Gradient descent on the RAW features diverges at lr = 1e-9, and the largest stable learning rate is about 6.9e-10 — I found a value that works and one that does not, either side of it"
+  - "After standardizing both features, gradient descent converges at lr = 0.1 in under 200 steps, and recovers standardized coefficients near intercept 31.97, w1 2.944, w2 7.778"
+  - "I can convert my standardized coefficients back to raw units and recover the closed-form solution to within 1%"
+  - "My loss curve for the working run decreases monotonically — no step increased the loss"
+questions:
+  - prompt: "Derive why gradient descent on f(x) = x^2 diverges above a learning rate of 1.0, and state the general condition in terms of a property of the loss surface."
+    answer_key: >-
+      The gradient is 2x, so the update is x_next = x - lr * 2x = x(1 - 2*lr).
+      Each step multiplies x by the fixed factor (1 - 2*lr), so the behaviour is
+      determined entirely by that factor's magnitude. If it is less than 1 in
+      absolute value, x shrinks geometrically and converges; if it equals 1 in
+      absolute value, x keeps its magnitude forever; if it exceeds 1, x grows
+      without bound. Solving |1 - 2*lr| < 1 gives 0 < lr < 1, with lr = 0.5 the
+      fastest possible since it makes the factor zero and lands on the minimum in
+      a single step. At lr = 1 exactly the factor is -1, which is why the value
+      flips between 1 and -1 forever. The general condition: for a quadratic, the
+      curvature is the second derivative, and gradient descent is stable when lr
+      is below 2 divided by the largest eigenvalue of the Hessian. Here the
+      Hessian is just 2, so the bound is 1. This is the same rule that governs the
+      scaling-trap dataset, where the largest eigenvalue is around 2.9 billion.
+  - prompt: "Gradient descent on the raw features needed a learning rate below 7e-10. Explain what about the data forced that, and why standardizing fixed it."
+    answer_key: >-
+      Stability is set by the largest curvature and progress is set by the
+      smallest, and those two are wildly different here. The x2 column has a
+      standard deviation around 19,408 against about 0.98 for x1, so the loss
+      surface is an extremely elongated valley — steep along the x2 direction,
+      almost flat along x1. The largest eigenvalue of the Gram matrix is about
+      2.9 billion, so any learning rate above roughly 6.9e-10 blows up along that
+      direction. But a rate that small makes essentially no progress along x1,
+      whose curvature is smaller by ten orders of magnitude. So the run either
+      explodes or crawls, and neither looks like a working algorithm.
+      Standardizing rescales both features to unit variance, which makes the
+      valley round instead of elongated: the eigenvalues come within a factor of
+      about 1.1 of each other, and a single learning rate is now simultaneously
+      stable and useful in every direction. The algorithm was never broken. The
+      conditioning was, and conditioning is a property of the data, not of the
+      optimizer.
+  - prompt: "Your standardized coefficients were around 2.94 and 7.78, but the true relationship has weights 3.0 and 0.0004. Explain why those are the same answer, and say what that means for reading coefficients as importance."
+    answer_key: >-
+      A coefficient is expressed in units of the target per unit of its feature,
+      so rescaling the feature rescales the coefficient inversely. Standardizing
+      x2 divided it by about 19,408, which multiplies its coefficient by the same
+      factor: 0.0004 times 19,408 is about 7.8, which is what you got. Similarly
+      3.0 times 0.98 is about 2.94. Converting back is just dividing each
+      coefficient by the corresponding standard deviation and adjusting the
+      intercept for the shifted means. The lesson for interpretation is sharp:
+      raw coefficient magnitudes tell you nothing about importance, because they
+      are as much a statement about the units the feature happens to be measured
+      in as about the relationship. A coefficient of 0.0004 looks negligible and
+      is in fact carrying real signal, because the feature it multiplies is
+      enormous. If you want to compare importance across features, standardize
+      first and compare the standardized coefficients, or use a method that does
+      not depend on scale at all. Node 2.2 returns to this.
+  - prompt: "You watched the loss decrease monotonically in your working run. Name two situations in real training where the loss legitimately goes up for a while, and say how you would tell them apart from a bug."
+    answer_key: >-
+      First, stochastic gradient descent on mini-batches: each step follows the
+      gradient of a different sample of the data, so an individual step can
+      increase the full-dataset loss even when the average direction is correct.
+      The per-batch loss curve is noisy by construction, and the way to tell it is
+      working is that a smoothed version trends down. Second, optimizers with
+      momentum can overshoot a narrow minimum and climb briefly before coming
+      back, and a learning-rate warmup deliberately starts small and grows, so
+      early loss can behave oddly. Cyclical schedules do the same on purpose.
+      Telling these apart from a bug: a bug usually produces loss that increases
+      monotonically or explodes to NaN rather than wandering, and it does not
+      recover. The diagnostic that settles it is the one node 4.3 is built around
+      — try to overfit a single small batch. If the loss on one batch will not go
+      to nearly zero, the problem is in your code or your gradients, not in your
+      optimizer settings, because memorising a handful of examples is something
+      any correct implementation can do.
+reflection_prompt: "When your first attempt on the raw features failed, what did you assume was wrong? Be honest about how long it took to suspect the data rather than the code — that instinct is what this node is trying to build."
+struggle_signals:
+  - "learner blames the algorithm for a conditioning problem"
+  - "learner tunes the learning rate downward indefinitely rather than scaling features"
+  - "learner never observes divergence because they only try safe learning rates"
+  - "learner cannot convert standardized coefficients back to raw units"
+---
+
+## Why this node exists
+
+Gradient descent is three lines of code. Understanding why it fails is the actual
+content, and it fails in two very different ways that look identical from the
+outside.
+
+The first is a learning rate too large for the curvature: the loss explodes and
+you see NaN. That one is loud. The second is a badly conditioned problem, where
+no single learning rate is both stable and useful, and the symptom is a run that
+seems to work but goes nowhere. Appendix B of the build plan names this exactly:
+*not normalizing features, then blaming the algorithm*.
+
+By the end of this node you should reach for a histogram of your feature scales
+before you reach for the learning rate.
+
+## The session
+
+### 1. The simplest possible case
+
+`f(x) = x^2`, starting at `x = 1`. The gradient is `2x`.
+
+```python
+def descend(lr, steps=50, x=1.0):
+    history = [x]
+    for _ in range(steps):
+        x = x - lr * 2 * x
+        history.append(x)
+    return history
+```
+
+Run it at `lr = 0.1`, `0.5`, `1.0`, `1.01` and `10.0`.
+
+| lr | after 50 steps |
+|---|---|
+| 0.1 | 1.4e-05 — converging |
+| 0.5 | exactly 0.0 — one step to the minimum |
+| 1.0 | 1.0 — oscillating forever between 1 and -1 |
+| 1.01 | 2.7 — slowly diverging |
+| 10.0 | overflow — diverged within 15 steps |
+
+**The lr = 10 run is required by the checklist.** Print the sequence and watch it
+grow. Appendix B asks for it specifically, because reading "it diverges" and
+seeing 1, -19, 361, -6859 are not the same experience.
+
+Then derive the boundary. `x_next = x(1 - 2*lr)`, so stability needs
+`|1 - 2*lr| < 1`. Question 1 asks you for this.
+
+### 2. The scaling trap
+
+[`scaling-trap.csv`](/datasets/scaling-trap.csv) — 2,000 rows, two features, one
+target. Nothing is missing, nothing is dirty. The only problem is scale:
+
+| | standard deviation |
+|---|---|
+| x1 | 0.979 |
+| x2 | 19,408 |
+
+Fit `y = b + w1*x1 + w2*x2` with your own gradient descent. No sklearn.
+
+First get the answer the easy way, so you know what you are aiming at:
+
+```python
+beta = np.linalg.lstsq(np.c_[np.ones(len(X)), X], y, rcond=None)[0]
+# intercept 11.9591, w1 3.0061, w2 0.00040077
+```
+
+Now try gradient descent on the raw features. Start at `lr = 0.01`. It will
+explode. Try `1e-5`. It will explode. Keep going.
+
+The largest stable learning rate is about **6.9e-10**. Find a value that works
+and one that does not, either side of it. Notice how useless the working one is —
+after a thousand steps you have barely moved.
+
+### 3. Fix it in one line
+
+```python
+Z = (X - X.mean(axis=0)) / X.std(axis=0)
+```
+
+Now run gradient descent at `lr = 0.1`. It converges in under 200 steps.
+
+The standardized coefficients come out near intercept 31.97, w1 2.944, w2 7.778.
+Convert them back to raw units and check against the closed-form answer.
+
+That conversion is the checklist item most people skip and the one that proves
+you understood what standardizing did.
+
+### 4. Watch the loss
+
+Record the loss at every step of the working run and plot it. It should decrease
+monotonically — plain full-batch gradient descent below the stability threshold
+never increases the loss. If yours does, your learning rate is above the bound
+even though it has not visibly exploded yet.
+
+## Why the threshold is what it is
+
+For a least-squares problem the curvature is captured by the Gram matrix
+`X.T @ X / n`. Gradient descent is stable when
+
+```
+lr < 2 / largest eigenvalue
+```
+
+For the raw features that largest eigenvalue is about **2.887e9**, giving a bound
+of 6.928e-10 — which is exactly what you found empirically. After standardizing,
+the eigenvalues fall between about 0.94 and 1.06 (numpy's `eigvalsh` puts the
+condition number of the raw problem near 2.2e10 and the standardized one near
+1.1), so the bound moves to about 1.895 and any sensible learning rate works.
+
+Conditioning is a property of your data. The optimizer is downstream of it.
+
+## Common walls
+
+**Your gradient has the wrong sign and the loss climbs steadily.** The gradient
+points uphill; descent subtracts it. If your loss rises smoothly rather than
+exploding, check the sign before the learning rate.
+
+**You forgot the 1/n in the mean squared error gradient.** It still converges,
+just with an effective learning rate scaled by the number of samples — which
+means your learning rate is 2,000 times larger than you think it is. Be
+consistent between loss and gradient.
+
+**You standardized the target as well and your intercept looks wrong.** That is
+legitimate, but you have to undo it too. Simplest is to leave y alone.
+
+**You standardized using statistics from the whole dataset.** Correct here, since
+there is no split. It will be wrong the moment there is one — that is node 2.3,
+and it is the second of its three leaks.
+
+**Your converted coefficients are close but not exact.** Check the intercept
+conversion: it is not just a rescale, it also has to absorb the subtracted means,
+`b_raw = b_std - sum(w_std_i * mean_i / sd_i)`.
+
+## Before you move on
+
+Phase 2 starts fitting real models. Node 2.2 fits linear and logistic regression
+with a library, and the library will do all of this for you — silently, well, and
+without telling you which learning rate it chose or why. Having done it by hand
+once is what makes that a convenience rather than a black box.

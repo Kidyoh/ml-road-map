@@ -1,0 +1,235 @@
+---
+id: "4.3"
+phase: 4
+order_index: 3
+title: "Training dynamics"
+slug: "training-dynamics"
+prereqs: ["4.2"]
+status: "published"
+goal: "You overfit a single batch to near-zero loss before you ever start a real training run, and you can read a loss curve for what is actually wrong."
+resources:
+  primary:
+    name: "A Recipe for Training Neural Networks — Andrej Karpathy"
+    url: "https://karpathy.github.io/2019/04/25/recipe/"
+    type: "article"
+    cost: "free"
+  alt:
+    name: "Dive into Deep Learning — Numerical Stability and Initialization"
+    url: "https://d2l.ai/chapter_multilayer-perceptrons/numerical-stability-and-init.html"
+    type: "book"
+    cost: "free"
+session:
+  brief: "Before training anything, overfit one batch of 32 images to a loss below 1e-3. Then break your network six different ways and learn to recognise each from its loss curve alone. The single-batch test is the gate: nothing else in this node happens until it passes."
+  difficulty: "hard"
+checklist:
+  - "My network overfits a single batch of 32 examples to a training loss below 1e-3, and I recorded how many steps it took"
+  - "I did that BEFORE any full training run — the checklist item above is the gate for this node"
+  - "My untrained network's initial loss is within 0.05 of ln(10) = 2.3026 on 10-class MNIST, confirming the initialization and the loss are sane"
+  - "I ran with the labels randomly shuffled and the network still drove training loss toward zero, confirming it has enough capacity to memorize"
+  - "That shuffled-label run showed test accuracy near 10%, and I can say why this is exactly what should happen"
+  - "I produced a loss curve for each of six deliberate faults: learning rate too high, too low, no shuffling, wrong loss, zero initialization, and a forgotten zero_grad"
+  - "I can identify each of those six from its curve alone, and I wrote down the distinguishing feature of each"
+  - "I logged gradient norms per layer and found the layer where they are smallest"
+  - "My final run has training and validation curves on the same axes, and I can point at the epoch where they separate"
+questions:
+  - prompt: "Explain why overfitting a single batch is the first thing to try, and say exactly what it rules out when it succeeds and what it rules out when it fails."
+    answer_key: >-
+      Memorising 32 examples requires almost no generalisation — the network only
+      has to map a handful of specific inputs to specific outputs, which any
+      network with enough parameters can do. So if it fails, the problem is
+      almost certainly in the machinery rather than in the learning: a wrong
+      gradient, a disconnected part of the graph, a loss that does not depend on
+      the parameters, labels misaligned with inputs, a data loader returning the
+      wrong thing, or an optimiser that is not stepping. All of those are bugs,
+      and all of them are much easier to find on 32 examples in ten seconds than
+      on 60,000 over an hour. If it succeeds, you have ruled out that whole class
+      of bug: the forward pass, the backward pass, the optimiser and the data
+      plumbing are connected and functional. What it does not rule out is anything
+      about generalisation — a network that memorises a batch can still be far too
+      small, badly regularised, or fed features that do not contain the answer.
+      It is a test of the machine, not of the model.
+  - prompt: "Training on randomly shuffled labels still drove the training loss to near zero, with test accuracy at chance. Explain what that demonstrates about neural networks."
+    answer_key: >-
+      That a sufficiently large network can memorise arbitrary labels, including
+      labels with no relationship to the inputs at all. There is nothing in the
+      architecture or the optimiser that prevents fitting noise — the capacity is
+      simply there, and gradient descent will use it. This is the central result
+      of the "Understanding deep learning requires rethinking generalization"
+      line of work, and it has two consequences worth carrying. First, a low
+      training loss is not evidence of anything; it is evidence that the network
+      had enough capacity, which you already knew. Only held-out performance says
+      anything about learning. Second, the reason networks generalise at all
+      cannot be that they are incapable of overfitting, which was the classical
+      story — it has to be something about the optimisation preferring simpler
+      solutions when simple solutions fit, plus regularisation, plus the data.
+      Practically, this is also a useful diagnostic in its own right: if a
+      shuffled-label run does not reach near-zero training loss, your network is
+      too small or your optimisation is broken.
+  - prompt: "Pick three of your six deliberate faults and describe the loss curve each produces, precisely enough that someone could tell them apart from your description alone."
+    answer_key: >-
+      Learning rate too high: the loss jumps upward within the first few steps
+      and either oscillates violently around a high value or goes to NaN and
+      stays there. The signature is that it never gets near the initial value
+      again. Learning rate too low: the loss decreases smoothly but almost
+      imperceptibly, tracing a nearly straight shallow line rather than a curve,
+      and it is still decreasing at the same slope when the run ends — the
+      distinguishing feature is that nothing has gone wrong, there is just no
+      curvature. Forgotten zero_grad: gradients accumulate across steps so the
+      effective step size grows without bound, and the loss falls normally for a
+      few steps and then explodes — it looks like a too-high learning rate that
+      arrived late. Zero initialisation: the loss sits pinned at exactly ln(10)
+      and does not move at all, because every hidden unit is identical and stays
+      identical. Wrong loss, such as MSE on logits: the loss decreases but
+      accuracy barely improves, so the two curves disagree, which is the tell. No
+      shuffling with sorted labels: the loss shows a strong sawtooth as each epoch
+      passes through the classes in order.
+  - prompt: "You logged per-layer gradient norms and found the smallest. Explain what a vanishing gradient is, and name the three architectural changes that made deep networks trainable."
+    answer_key: >-
+      Backpropagation multiplies local derivatives along the path from the loss to
+      a parameter, so a gradient reaching an early layer is a product of many
+      terms. If those terms are consistently below one — as they are for sigmoid
+      and tanh, whose derivatives peak at 0.25 and 1 and are usually much smaller
+      — the product shrinks exponentially with depth, and early layers receive
+      almost no signal. They effectively stop learning while later layers train
+      normally. The three changes that fixed this: ReLU and its relatives, whose
+      derivative is exactly 1 for positive inputs so the product does not decay;
+      careful initialisation, He for ReLU and Xavier for tanh, which sets the
+      initial weight scale so activations and gradients keep roughly constant
+      variance across layers rather than growing or shrinking; and residual
+      connections, which add an identity path so the gradient has a route to early
+      layers that is not multiplied by anything. Normalisation layers — batch
+      norm, layer norm — belong on the list too, since they keep activations in a
+      range where derivatives are well behaved. Together these are why depth went
+      from about five layers to hundreds.
+reflection_prompt: "Which of the six faults would you have diagnosed correctly before this node, and which would you have spent an afternoon on? Be specific about what you would have blamed instead."
+struggle_signals:
+  - "learner starts a full training run before the single-batch test passes"
+  - "learner responds to a bad loss curve by changing the architecture"
+  - "learner does not know what the initial loss should be"
+  - "learner never logs gradient norms"
+  - "learner reveals the answer key before running the six faults"
+---
+
+## Why this node exists
+
+Appendix B: **the overfit-one-batch discipline is the point.** The checklist
+requires single-batch loss below 1e-3 before full training is attempted.
+
+Deep learning debugging is unlike other debugging because nothing raises. A
+network with a wrong gradient trains. A network with misaligned labels trains. A
+network with a learning rate off by a factor of a hundred trains, slowly, to a
+worse answer. There is no stack trace, only a curve.
+
+This node is about reading that curve, and about the one test that separates
+"my code is broken" from "my model is wrong" in ten seconds.
+
+This is also one of the three nodes scheduled to get an in-browser execution
+runtime, because self-verification here is the least trustworthy in the roadmap.
+Tick honestly.
+
+## The session
+
+### 1. The gate
+
+Take one batch of 32 MNIST images. Train on only those, forever.
+
+**The loss must go below 1e-3.**
+
+If it does not, stop. Do not tune anything, do not change the architecture, do
+not train on the full dataset. Something is broken, and you will find it far
+faster on 32 examples than on 60,000.
+
+Record how many steps it took. A two-layer MLP should manage it in a few hundred.
+
+### 2. Sanity checks that cost one line each
+
+| Check | Expected | Catches |
+|---|---|---|
+| Initial loss | `ln(10)` = 2.3026 | bad init, wrong loss, wrong class count |
+| Loss after 1 step on 1 batch | slightly lower | optimizer not stepping |
+| Input shape and range | (64, 1, 28, 28), 0 to 1 | normalisation, wrong loader |
+| Label alignment | plot an image, print its label | the worst and most common bug |
+
+The initial-loss check is the highest-value single line in deep learning. For
+`k` balanced classes an untrained network should sit at `ln(k)`.
+
+### 3. Memorise noise
+
+Shuffle the labels randomly — destroy any relationship between image and label —
+and train.
+
+The training loss will still go to near zero. Test accuracy will be about 10%.
+
+Question 2 asks what that demonstrates. It is one of the more important facts
+about neural networks and it takes five minutes to see for yourself.
+
+### 4. Six faults, six curves
+
+Break your working setup one way at a time and save each loss curve:
+
+1. Learning rate 100x too high
+2. Learning rate 100x too low
+3. No shuffling, with the data sorted by label
+4. MSE loss on logits instead of cross-entropy
+5. All weights initialised to zero
+6. `optimizer.zero_grad()` removed
+
+Plot all six. Write one sentence per curve describing its distinguishing feature.
+
+This library of shapes is the actual deliverable. Once you have seen them, you
+recognise them in seconds for the rest of your career.
+
+### 5. Gradient norms
+
+```python
+for name, p in model.named_parameters():
+    if p.grad is not None:
+        print(f"{name:20s} {p.grad.norm().item():.6f}")
+```
+
+Log these per layer. Find the smallest. In a two-layer network the difference
+will be modest; the same instrument on a twenty-layer network without residual
+connections shows the vanishing gradient directly.
+
+### 6. Now train properly
+
+Training and validation curves on the same axes. Find the epoch where they
+separate — that is where overfitting begins and where early stopping should have
+fired, exactly as in node 2.6.
+
+## Reading a loss curve
+
+| Shape | Usually means |
+|---|---|
+| NaN within a few steps | learning rate too high, or a log of zero |
+| Flat at ln(k) | zero init, dead ReLUs, optimizer not connected |
+| Smooth but nearly horizontal | learning rate too low |
+| Falls then explodes | missing `zero_grad`, or accumulating something |
+| Noisy sawtooth per epoch | not shuffling |
+| Train falls, validation rises | overfitting — the honest kind |
+| Validation below training | dropout or augmentation active in training only |
+
+That last one surprises people and is not a bug.
+
+## Common walls
+
+**Single-batch loss stalls around 0.1.** Your capacity is fine; something is
+diluting the signal. Check for dropout still active, or weight decay, or that you
+are actually training on the same batch each step rather than a new one.
+
+**Loss is NaN by step three.** Learning rate, or a `log(0)` in a hand-written
+loss. Use the framework's fused cross-entropy — node 4.2's question 2.
+
+**Overfits one batch but full training does nothing.** The machinery works and
+the learning does not, which points at the data: normalisation, augmentation
+destroying the signal, or labels misaligned only in the full loader.
+
+**Everything works and you skipped the gate.** Do it anyway. The value is in
+having the reflex before you need it, and you will need it on a run that costs
+six hours rather than ten seconds.
+
+## Before you move on
+
+Nodes 4.4 and 4.5 introduce architectures — convolutions and attention — and both
+assume you can tell "this architecture is wrong for the problem" from "my
+training loop has a bug". That distinction is what this node bought you.

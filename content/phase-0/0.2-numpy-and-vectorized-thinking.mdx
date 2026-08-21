@@ -1,0 +1,209 @@
+---
+id: "0.2"
+phase: 0
+order_index: 2
+title: "Numpy and vectorized thinking"
+slug: "numpy-and-vectorized-thinking"
+prereqs: ["0.1"]
+status: "published"
+goal: "You can express a loop you already understand as an array operation, and you can say what that cost you in readability and gained you in speed — because you timed both."
+resources:
+  primary:
+    name: "NumPy — the absolute basics for beginners, then Broadcasting"
+    url: "https://numpy.org/doc/stable/user/absolute_beginners.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "From Python to NumPy — Nicolas Rougier"
+    url: "https://www.labri.fr/perso/nrougier/from-python-to-numpy/"
+    type: "book"
+    cost: "free"
+session:
+  brief: "Write four computations twice — once as a Python loop, once as array operations — and time both. Then make one of them run out of memory on purpose, so you learn what broadcasting actually costs."
+  difficulty: "easy"
+checklist:
+  - "My loop and vectorized versions of the pairwise-distance problem agree to within 1e-9, checked with `np.allclose`, not by eye"
+  - "The vectorized pairwise-distance version is at least 50x faster than the loop, timed with `time.perf_counter` over the same inputs"
+  - "My distance matrix for 1000 points against 500 points has shape exactly (1000, 500) — 500,000 entries"
+  - "I can state the shape numpy produces for `np.ones((3,1)) + np.ones((1,4))` before running it, and I was right: (3, 4)"
+  - "The deliberate broadcast blow-up allocated an array of at least 8 GB and either raised MemoryError or made my machine swap — I saw it happen, I did not just reason about it"
+  - "`arr[arr > 0.5] = 0` changed my original array, and `arr[arr > 0.5] + 0` did not — I verified both with `id()` or by printing the original afterwards"
+  - "My normalized array has column means within 1e-12 of 0 and column standard deviations within 1e-12 of 1"
+questions:
+  - prompt: "Your loop version and your vectorized version compute the same distances, but the vectorized one is far faster. The Python interpreter is not doing less arithmetic. Explain where the time actually went in the loop version."
+    answer_key: >-
+      It did not go into the arithmetic — it went into the interpreter. Every
+      iteration of a Python loop allocates Python objects, does a dictionary
+      lookup to find the operator, checks types at runtime, and boxes the result
+      back into a Python float. The actual floating-point multiply is a rounding
+      error next to that overhead. NumPy moves the loop itself into compiled C,
+      where the numbers live in a flat contiguous buffer with a known dtype, so
+      there is no per-element type check, no allocation, and no boxing. It also
+      lets the CPU use vector instructions that operate on several numbers at
+      once and keeps the data in cache. The lesson generalises well past numpy:
+      when an inner loop is slow in a dynamic language, the fix is usually to
+      hand the whole loop to something compiled rather than to optimise the body
+      of it.
+  - prompt: "Broadcasting let you write `A[:, None, :] - B[None, :, :]` instead of two nested loops. Describe what that expression actually allocates in memory, and say why the same trick becomes a liability at a million points."
+    answer_key: >-
+      It allocates the full intermediate difference array, with shape
+      (len(A), len(B), n_dims). For 1000 by 500 points in 3 dimensions that is
+      1.5 million float64 values, about 12 MB — completely fine. For a million
+      points against a million points it is 10^12 by 3 entries, which is roughly
+      24 terabytes, and the allocation fails long before any arithmetic happens.
+      The important point is that broadcasting does not avoid the work; it moves
+      the work into a single large allocation, and that allocation is invisible
+      in the source because nothing in the expression names it. This is why
+      libraries that do large-scale distance computation chunk the inputs, or use
+      the algebraic identity that expands the squared distance into terms that
+      can be computed from matrix products without ever materialising the
+      difference array. Knowing that the intermediate exists is what lets you
+      predict when a one-line expression will fall over.
+  - prompt: "Explain the difference between a view and a copy in numpy, and describe a bug you could ship because of it that would not raise any error."
+    answer_key: >-
+      Basic slicing returns a view — a new array object that points at the same
+      underlying buffer — while fancy indexing (with a boolean mask or an integer
+      array) returns a copy. Writing through a view mutates the original; writing
+      through a copy does not. The bug that ships silently: you take
+      `train = data[:800]` as a view, then normalise it in place with
+      `train -= train.mean(0)`. You have just mutated the first 800 rows of
+      `data` as well, so any later split, any re-run of the cell, or any other
+      reference to `data` now sees doubly-normalised rows. Nothing raises. Your
+      metrics shift and you blame the model. The defence is to be deliberate:
+      call `.copy()` when you intend a copy, and prefer out-of-place operations
+      over in-place ones unless memory genuinely forces your hand.
+  - prompt: "You normalized a matrix so every column has mean 0 and standard deviation 1. Name one column of real data where doing this would be actively wrong, and say what you would do instead."
+    answer_key: >-
+      Any column where zero already means something, or where the distribution is
+      not remotely symmetric. A count column that is zero for most rows — number
+      of support tickets, say — gets its meaningful zero moved to some arbitrary
+      negative number, and the handful of large values dominate the standard
+      deviation so almost everything ends up squashed near the same value. A
+      heavily skewed column like income or session duration has the same problem.
+      Better options: a log transform first (log1p handles the zeros), a rank or
+      quantile transform if only the ordering matters, or min-max scaling if you
+      need a bounded range and the bounds are genuine. A one-hot column should
+      usually not be scaled at all. The real answer, which node 2.3 makes
+      unavoidable, is that whichever you choose the parameters must be fitted on
+      training data only.
+reflection_prompt: "Which of the four problems did you find hardest to express without a loop, and be honest — is the vectorized version of that one actually easier to read than the loop, or did you just make it faster?"
+struggle_signals:
+  - "learner writes the vectorized version by trial and error until shapes stop erroring"
+  - "learner cannot predict a broadcast shape before running it"
+  - "learner reports a speedup without ever timing the loop version"
+  - "learner assumes every slice is a copy"
+---
+
+## Why this node exists
+
+Node 0.1 taught you to write loops. This node is about learning when to stop.
+
+Every library you touch from here on — pandas, scikit-learn, PyTorch — is built
+on the assumption that you think in whole arrays rather than in elements. That is
+not just a performance idea. It changes what code you write: once an operation
+applies to an entire column at once, you stop asking "for each row, what do I do"
+and start asking "what is the shape of the answer".
+
+The trap is that vectorized code can be written by accident. You can shuffle
+`[:, None]` around until the error goes away and get the right numbers without
+knowing why. This node is designed so that does not work.
+
+## The session
+
+Four problems. Write each one twice.
+
+### 1. Pairwise distances
+
+Given `A` with shape (1000, 3) and `B` with shape (500, 3), compute the Euclidean
+distance between every point in A and every point in B.
+
+```python
+rng = np.random.default_rng(0)
+A = rng.normal(size=(1000, 3))
+B = rng.normal(size=(500, 3))
+```
+
+Write the double loop first. Time it. Then write it with broadcasting, time that,
+and compare with `np.allclose`. **Predict the output shape before you run it.**
+
+### 2. The deliberate blow-up
+
+Take the same broadcasting expression and scale it up until it fails. Start at
+20,000 points against 20,000 points and work up.
+
+Before you run each size, compute by hand how many bytes the intermediate array
+will take: `n * m * d * 8`. You are looking for the point where your prediction
+and your machine's behaviour meet. **The checklist asks you to actually see it
+fail.** Reasoning about it is not the same experience.
+
+### 3. Views and copies
+
+```python
+arr = rng.random(10)
+original = arr.copy()
+
+sliced = arr[2:5]
+sliced[:] = 99          # what happened to arr?
+
+masked = arr[arr > 0.5]
+masked[:] = -1          # what happened to arr this time?
+```
+
+Predict both, then check. Then find `np.shares_memory` and use it to confirm.
+
+### 4. Normalization
+
+Normalize a (1000, 5) matrix so each column has mean 0 and standard deviation 1.
+Assert the result rather than eyeballing it:
+
+```python
+assert np.allclose(out.mean(axis=0), 0, atol=1e-12)
+assert np.allclose(out.std(axis=0), 1, atol=1e-12)
+```
+
+Getting `axis` wrong here is the single most common numpy mistake and it does not
+raise — you will just normalize rows instead of columns and everything downstream
+will be quietly wrong. The assertions are what catch it.
+
+## Broadcasting, stated once
+
+Two arrays are compatible when, comparing their shapes from the right, each pair
+of dimensions is either equal or one of them is 1. Dimensions of size 1 are
+stretched; missing leading dimensions are treated as 1.
+
+| A | B | Result |
+|---|---|---|
+| (3, 1) | (1, 4) | (3, 4) |
+| (5, 3) | (3,) | (5, 3) |
+| (5, 3) | (5,) | **error** |
+| (1000, 1, 3) | (1, 500, 3) | (1000, 500, 3) |
+
+The third row is the one that catches people. To add a per-row value to a (5, 3)
+array you need shape (5, 1), not (5,) — you have to say which axis you meant.
+
+## Common walls
+
+**Your shapes work but your numbers are wrong.** You almost certainly summed over
+the wrong axis. Print `.shape` after every step; if an intermediate has the shape
+you expected, the bug is in the arithmetic, and if it does not, the bug is in the
+indexing. Do not proceed on the assumption that it is fine.
+
+**Your speedup is only 3x, not 50x.** Either you are timing the array creation
+along with the computation, or your "vectorized" version still has a Python loop
+in it somewhere. Time only the computation, and read your code for the word
+`for`.
+
+**`np.std` disagrees with the standard deviation you expected.** NumPy defaults
+to the population standard deviation (`ddof=0`); pandas defaults to the sample one
+(`ddof=1`). Neither is wrong, they are answers to different questions, and mixing
+them is a real source of small unexplained differences between two pipelines that
+should agree.
+
+**In-place operations on integer arrays silently truncate.** `int_arr /= 2` will
+either raise or floor depending on the operation. Check your dtypes.
+
+## Before you move on
+
+Node 0.3 hands you a messy CSV and asks for a number you would defend. Pandas is
+numpy underneath, and every axis mistake you can make here you can make there,
+except there the columns have names and the mistake is harder to see.

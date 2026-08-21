@@ -1,0 +1,229 @@
+---
+id: "6.6"
+phase: 6
+order_index: 6
+title: "The system view"
+slug: "the-system-view"
+prereqs: ["6.5"]
+status: "published"
+goal: "You can draw the whole system on one page and point at where it will break first, with a reason rather than a hunch."
+resources:
+  primary:
+    name: "Hidden Technical Debt in Machine Learning Systems — Sculley et al., NeurIPS 2015"
+    url: "https://papers.nips.cc/paper_files/paper/2015/hash/86df7dcfd896fcaf2674f757a2463eba-Abstract.html"
+    type: "article"
+    cost: "free"
+  alt:
+    name: "Machine Learning Systems Design — Chip Huyen, lecture notes"
+    url: "https://huyenchip.com/machine-learning-systems-design/toc.html"
+    type: "book"
+    cost: "free"
+session:
+  brief: "Draw everything you built in phase 6 as one diagram. Then run a pre-mortem: assume it has failed catastrophically six months from now, write the incident report from the future, and turn it into a ranked list of what to fix. Finish by actually breaking one component and finding out whether your prediction was right."
+  difficulty: "hard"
+checklist:
+  - "My diagram fits on one page and shows every component from raw data through to a monitored prediction"
+  - "Every arrow on my diagram is labelled with what flows along it and how often"
+  - "I marked every point where data is transformed, and identified which transformations exist in more than one place"
+  - "I identified at least one place where training and serving could compute a feature differently, or proved there is none"
+  - "My pre-mortem names at least 5 distinct failure modes, each with a mechanism, not just a component name"
+  - "For each failure mode I recorded how I would find out, and how long it would take"
+  - "At least one of my failure modes has a detection time longer than a week, and I can say why"
+  - "I ranked the failures by expected cost — likelihood times impact — not by how interesting they are"
+  - "I actually broke one component in a test environment and recorded whether the failure and detection matched my prediction"
+  - "My ranked list has a top item, and I can state what it would cost to fix"
+questions:
+  - prompt: "Show your diagram's riskiest path and explain why it is the riskiest. What makes a component dangerous beyond simply being important?"
+    answer_key: >-
+      Danger is not importance, it is the product of likelihood of failure,
+      severity of consequence, and how long the failure goes undetected. A
+      component can be critical and safe if it fails loudly and instantly — a
+      model server that crashes takes the product down, which is severe, but
+      everyone knows within seconds and the rollback is one command. The
+      dangerous components are the ones that fail quietly and are trusted by
+      everything downstream: a feature pipeline that starts producing subtly wrong
+      values, a label pipeline that begins mislabelling, a join that silently
+      drops rows. Those keep the system running while corrupting everything it
+      produces, and the corruption propagates into the next retraining run and
+      becomes permanent. On my diagram that is the feature computation path,
+      because it is used by both training and serving, it has no schema
+      enforcement between the two, and a discrepancy there produces no error at
+      any point. The general test: for each component, ask what happens if it
+      returns plausible but wrong output, and how long before somebody notices.
+  - prompt: "Where in your system could training and serving compute a feature differently? Describe the mechanism by which that discrepancy stays invisible."
+    answer_key: >-
+      Anywhere the same feature is implemented twice — typically once in a batch
+      job written in SQL or pandas for training, and once in the serving path
+      written in application code, because the serving path needs it computed for
+      one row in milliseconds while the training path computes it for millions in
+      a nightly run. The two implementations start identical and diverge, because
+      only one of them gets updated when a definition changes. It stays invisible
+      because there is no point at which the two are compared: training reads its
+      own features, serving computes its own, and nothing joins them. Every metric
+      you have is computed within one world or the other, so both look fine. It
+      surfaces as a model that validates well and performs worse in production for
+      no apparent reason — a symptom easily misattributed to drift, which is why
+      it can persist for a long time. The defences are to share one implementation
+      between both paths, which is the core argument for a feature store; to log
+      the features actually used at serving time and periodically compare them
+      against what the training pipeline would have produced for the same entity;
+      and to treat any difference as a bug rather than as noise.
+  - prompt: "One of your failure modes takes more than a week to detect. Name it, and say what you would change to shorten that — including what the change would cost."
+    answer_key: >-
+      The usual candidate is concept drift, or any degradation whose only evidence
+      is model performance, because performance needs labels and labels arrive on
+      the business's schedule rather than yours. In fraud that is the chargeback
+      window, which can be weeks; in churn it is the subscription period. Slow
+      label corruption is the other one, since a labelling process that starts
+      producing wrong answers is only detectable by auditing labels, which nobody
+      does routinely. To shorten it: find a proxy that arrives sooner — analyst
+      overturn rate on flagged cases, customer complaint volume, the prediction
+      distribution itself — and monitor that instead, accepting that a proxy is
+      noisier and can mislead. Or buy labels faster by paying humans to label a
+      sample continuously, which converts a detection delay into an ongoing cost
+      and is often worth it. Or hold out a small random slice from the model's
+      decisions so you keep observing unbiased outcomes, which costs you the value
+      of the decisions you deliberately did not make. Every option trades money or
+      performance for detection speed, and the right choice depends on what a week
+      of being wrong actually costs — which is a number worth computing rather
+      than assuming.
+  - prompt: "You broke a component and compared reality to your prediction. What did you get wrong, and what does that suggest about pre-mortems in general?"
+    answer_key: >-
+      Any honest answer is good; the common surprises are that detection was much
+      slower than expected because the alert existed but was routed somewhere
+      nobody watches, that the failure propagated further than predicted because a
+      downstream component retried and amplified it, or that something failed
+      first that was not on the diagram at all — a credential, a DNS entry, a disk
+      filling up. What it suggests about pre-mortems is that they are necessary
+      and not sufficient. They are excellent at enumerating failures you can
+      imagine, which is more than most teams ever write down, and they
+      systematically miss the ones that come from components you did not think
+      were part of the system. That is why the last checklist item is to actually
+      break something: an untested belief about how your system fails is a belief,
+      and the gap between the two is where incidents live. The mature version of
+      this is regular deliberate failure injection — game days, chaos engineering
+      — for the same reason node 6.4 insists you watch the gate refuse something.
+reflection_prompt: "Look at your ranked list. Would you rather spend next month on the top item or on improving the model's accuracy by two points? Answer honestly, and say what that reveals."
+struggle_signals:
+  - "learner draws only the model and not the data path"
+  - "learner ranks failures by interest rather than expected cost"
+  - "learner has no failure mode with a long detection time"
+  - "learner never tests a prediction by breaking something"
+---
+
+## Why this node exists
+
+The Sculley paper this node points at makes one argument, and it is the argument
+of the whole phase: **the model is a small part of a machine learning system.**
+Everything around it — data collection, feature extraction, verification,
+serving, monitoring, configuration — is larger, less examined and where the
+failures live.
+
+You have now built all of those pieces. This node is about seeing them as one
+thing, and being able to say where it breaks.
+
+## The session
+
+### 1. Draw it
+
+One page. Everything from raw data to a monitored prediction:
+
+```
+data source -> ingestion -> validation -> feature computation
+                                              |
+                          +-------------------+-------------------+
+                          |                                       |
+                    training path                          serving path
+                          |                                       |
+                    train -> evaluate -> gate                 model server
+                          |                                       |
+                       registry  ------------------------->  loads version
+                                                                  |
+                                                             predictions
+                                                                  |
+                                                    logging -> monitoring -> alerts
+                                                                  |
+                                                          labels (later) -> performance
+```
+
+**Label every arrow** with what flows and how often. "Features, hourly" and
+"Features, per request" on two arrows out of the same box is the whole
+training-serving skew problem drawn in two labels.
+
+### 2. Find the duplicated transformations
+
+Mark every place data is transformed. Then find the ones that happen in more than
+one place.
+
+That set is where training-serving skew lives. Question 2 asks how the
+discrepancy stays invisible, and the answer is that nothing ever compares the two.
+
+### 3. The pre-mortem
+
+Assume it is six months from now and the system has failed badly. Write the
+incident report from the future.
+
+At least five distinct failure modes, each with a **mechanism** rather than a
+component name. Not "the feature pipeline broke" but "a schema change upstream
+renamed a column, the join silently produced nulls, the model treated nulls as
+zero, and predictions shifted for the 12% of customers with that attribute."
+
+For each, two more columns:
+
+| Failure | How would I find out? | How long? |
+|---|---|---|
+
+At least one must take more than a week. If none does, you have not thought about
+labels — question 3.
+
+### 4. Rank by expected cost
+
+Likelihood times impact. Not by how interesting the failure is, which is the
+default ordering and is why interesting-but-rare failures get engineered against
+while boring-and-likely ones take the system down.
+
+### 5. Break something
+
+Pick one component. Break it in a test environment.
+
+Compare what actually happened against what you predicted — the failure, the
+propagation, and the detection time.
+
+Question 4 asks what you got wrong, and something will be wrong.
+
+## Where these systems actually break
+
+From the paper, and from experience, roughly in order of how often:
+
+| | Why it hurts |
+|---|---|
+| **Data dependencies** | unversioned, unmonitored, and changed by people who do not know you depend on them |
+| **Training-serving skew** | two implementations of one definition |
+| **Feedback loops** | the model shapes its own future training data |
+| **Configuration** | sprawling, untested, and able to change behaviour as much as code |
+| **Undeclared consumers** | somebody built on your output without telling you |
+| **Glue code** | most of the codebase, none of it interesting, all of it load-bearing |
+| **Pipeline jungles** | accreted transformations nobody can safely remove |
+
+Notice that "the model was not accurate enough" is not on the list.
+
+## Common walls
+
+**Your diagram is only the training pipeline.** Serving, monitoring and labels
+are where the long-detection failures live. Draw them.
+
+**Every failure is detected in minutes.** You have only listed loud failures.
+The quiet ones are the dangerous ones — question 1.
+
+**Your ranking puts an exotic failure first.** Multiply by likelihood. A
+schema change upstream is far more probable than anything clever.
+
+**You cannot break anything safely.** That is itself a finding, and probably the
+top item on your list. A system you cannot test failure in is a system whose
+failure behaviour is unknown.
+
+## Before you move on
+
+That is phase 6, and everything this roadmap teaches. Node 7.1 is the capstone: a
+problem nobody set for you, on data you sourced yourself, shipped and reviewed by
+another person. Everything from here is yours.

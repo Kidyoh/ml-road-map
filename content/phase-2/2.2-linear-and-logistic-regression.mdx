@@ -1,0 +1,239 @@
+---
+id: "2.2"
+phase: 2
+order_index: 2
+title: "Linear and logistic regression"
+slug: "linear-and-logistic-regression"
+prereqs: ["1.5", "2.1"]
+status: "published"
+goal: "You can fit, read and defend a linear model, say what its coefficients do and do not mean, and recognise when it has added nothing over a single sorted column."
+resources:
+  primary:
+    name: "scikit-learn User Guide — Linear Models, sections 1.1.1 to 1.1.11"
+    url: "https://scikit-learn.org/stable/modules/linear_model.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "An Introduction to Statistical Learning — chapters 3 and 4"
+    url: "https://www.statlearning.com/"
+    type: "book"
+    cost: "free"
+session:
+  brief: "Fit logistic regression to the framing you built in node 2.1, and discover that five carefully engineered features beat a single sorted column by 0.001 AUC. Then work out what the coefficients are actually telling you, and why four of them are nearly zero."
+  dataset: "/datasets/retail-events.csv"
+  difficulty: "medium"
+checklist:
+  - "My feature table from node 2.1's spec has shape (2756, 5) with a base rate of 0.5624"
+  - "My 5-fold cross-validated ROC AUC for logistic regression on all five features is 0.8387, plus or minus 0.005"
+  - "Logistic regression on recency alone scores 0.8381 — I ran it, and the five-feature model beats it by less than 0.001"
+  - "The standardized coefficient on recency is about -1.58 and every other coefficient is smaller than 0.15 in absolute value"
+  - "My model's accuracy at a 0.5 threshold is about 0.7707, against 0.5624 for always predicting the majority class"
+  - "exp(-1.5836) = 0.2052, and I can state what that number means in one sentence about odds"
+  - "I fitted the same model without standardizing and confirmed the coefficients change while the AUC does not"
+  - "I deliberately added a duplicated feature column and watched the coefficients on the pair become unstable while the AUC stayed the same"
+  - "I fitted a linear regression predicting total post-cutoff spend, and I can name two ways its residuals violate the assumptions of ordinary least squares"
+questions:
+  - prompt: "Five engineered features scored 0.8387. One sorted column scored 0.8376. Write the sentence you would put in a report about this, and say what you would do next."
+    answer_key: >-
+      Something close to: "A logistic regression on recency, frequency, monetary
+      value, average basket and tenure achieves 0.839 cross-validated ROC AUC.
+      Ranking customers by days since last purchase alone achieves 0.838. The
+      model does not currently justify its own complexity." That is the honest
+      report and it is a useful one, not an embarrassing one — it says the signal
+      in this table is essentially one-dimensional. What to do next, in order of
+      expected value: go and get different data, because more modelling on the
+      same five columns will not help; check whether the framing is right, since a
+      different label window or population might expose structure this one hides;
+      and consider shipping the rule instead of the model, because a threshold on
+      one column needs no training pipeline, no feature store and no monitoring
+      of five inputs. The thing not to do is reach for a bigger model. Node 2.6
+      will let you try, and it is worth knowing in advance that it barely helps.
+  - prompt: "The standardized coefficient on recency is -1.58 and exp(-1.58) is 0.205. State precisely what that means, and then say why the unstandardized coefficient would have been useless for this purpose."
+    answer_key: >-
+      Logistic regression is linear in the log-odds, so a coefficient is the
+      change in log-odds per unit change in the feature, holding the others
+      fixed. Exponentiating turns that into an odds ratio: for each one standard
+      deviation increase in recency — about 65 days here — the odds of returning
+      are multiplied by 0.205, roughly a fifth. Longer since last purchase, much
+      lower odds of coming back, which is the direction anybody would guess and
+      the magnitude nobody would have guessed. The unstandardized coefficient
+      would express the same relationship per single day rather than per standard
+      deviation, giving a number very close to 1.0 per day that looks negligible
+      and is not, exactly as node 1.5 showed with the 0.0004 weight. Worse, it
+      would be incomparable with the coefficient on monetary value, which is
+      measured in currency. Standardizing first is what makes the coefficients
+      comparable at all, and it is the only version worth reading as importance.
+  - prompt: "Duplicating a feature column left the AUC unchanged but made the coefficients unstable. Explain the mechanism, and say what you would look for in a real dataset where the duplication is not exact."
+    answer_key: >-
+      With two identical columns, any split of the original coefficient between
+      them produces exactly the same predictions — the model is unidentified, and
+      which particular split you get depends on the solver, the regularisation and
+      the random state rather than on the data. The predictions, and therefore the
+      AUC, are unaffected, which is what makes this so easy to miss: nothing looks
+      wrong except the interpretation. In real data the duplication is nearly
+      never exact; it is two features that measure almost the same thing, such as
+      total spend and transaction count times average basket, or height in
+      centimetres and in inches after a unit fix. The symptoms to look for are
+      large coefficients with opposite signs on related features, coefficients
+      that swing wildly when you refit on a bootstrap sample or change the random
+      seed, and a variance inflation factor above about 5 or 10. The fixes are to
+      drop one, combine them, or use L2 regularisation, which resolves the tie by
+      splitting the weight evenly and is the reason ridge is the sane default.
+  - prompt: "Your linear regression predicting post-cutoff spend has residuals that violate the assumptions of ordinary least squares. Name two of those violations concretely, and say what each one breaks — being specific about whether it breaks the predictions or only the inference."
+    answer_key: >-
+      First, heteroscedasticity: spend is bounded below by zero and highly skewed,
+      so the residual spread grows with the fitted value — customers predicted to
+      spend a little are wrong by a little, customers predicted to spend a lot are
+      wrong by a lot. This does not bias the coefficients, but it invalidates the
+      standard errors, so any p-value or confidence interval on those coefficients
+      is wrong. Second, the residuals are not normally distributed and cannot be:
+      a large share of customers spend exactly zero, so the outcome has a point
+      mass at zero and a long right tail, and no symmetric error distribution can
+      describe that. This breaks inference for the same reason and also makes the
+      squared-error loss a poor match, since it pulls the fit toward the extreme
+      values. Predictions themselves can still be usable — least squares is the
+      best linear unbiased estimator under weaker conditions than normality — but
+      the honest fixes here are to model log spend, or to split the problem into a
+      classifier for whether they spend at all and a regressor for how much given
+      that they do.
+reflection_prompt: "You spent node 2.1 carefully engineering five features and this node discovering that four of them contribute almost nothing. How does that change how you would spend your first day on the next problem?"
+struggle_signals:
+  - "learner reports the five-feature AUC without comparing it to the baseline"
+  - "learner reads unstandardized coefficient magnitudes as importance"
+  - "learner cannot state what a coefficient means in units"
+  - "learner adds features hoping one will help rather than asking what signal is missing"
+---
+
+## Why this node exists
+
+Linear models are the baseline you will compare everything against for the rest
+of the roadmap, and they are the model you should ship unless something else
+earns its place. They are also the last model whose coefficients you can read
+directly, which makes them the right place to learn what a coefficient is and
+what it is not.
+
+This node also delivers a result that is more useful than a good one: the model
+you carefully build is going to tie with a single sorted column. That happens
+constantly in practice and almost never in tutorials.
+
+## The session
+
+Pick up exactly where node 2.1 left off — same population, same cutoff, same
+label.
+
+### 1. Build the feature table
+
+From transactions strictly before 2024-10-01:
+
+```python
+g = pre.groupby("customer_id")
+X = pd.DataFrame({
+    "recency":   (CUTOFF - g.order_date.max()).dt.days,
+    "frequency": g.size(),
+    "monetary":  g.amount.sum(),
+})
+X["avg_basket"] = X.monetary / X.frequency
+X["tenure"]     = (CUTOFF - g.order_date.min()).dt.days
+```
+
+Shape should be (2756, 5), base rate 0.5624.
+
+### 2. Fit it properly
+
+Standardize inside a pipeline, not before it. You are about to spend node 2.3 on
+why, and there is no reason to build the bad habit first.
+
+```python
+pipe = Pipeline([("s", StandardScaler()), ("m", LogisticRegression(max_iter=2000))])
+cross_val_score(pipe, X, y, cv=5, scoring="roc_auc")
+```
+
+**0.8387**, with a standard deviation of about 0.023.
+
+### 3. Now the uncomfortable comparison
+
+| Model | 5-fold CV ROC AUC |
+|---|---|
+| Recency, sorted (node 2.1's baseline) | 0.8376 |
+| Logistic regression, recency only | 0.8381 |
+| Logistic regression, all five features | **0.8387** |
+
+Four extra features bought you 0.0006 AUC — a fifth of the standard deviation
+across folds, which is to say nothing at all.
+
+Sit with that before moving on. Question 1 asks you to write the report sentence.
+
+### 4. Read the coefficients
+
+```
+recency      -1.5836
+frequency    -0.1150
+monetary     +0.1209
+avg_basket   -0.0875
+tenure       +0.1393
+intercept    +0.1821
+```
+
+One feature is doing everything. `exp(-1.5836) = 0.2052`: each standard deviation
+of extra recency multiplies the odds of returning by about a fifth.
+
+Then refit **without** standardizing and compare. The AUC is identical; the
+coefficients are unrecognisable. That is the whole argument for standardizing
+before you interpret.
+
+### 5. Break it on purpose
+
+Add `X["recency_copy"] = X["recency"]` and refit several times with different
+`random_state` values. Watch the coefficients on the pair move around while the
+AUC does not budge.
+
+Then add a small amount of noise to the copy instead of duplicating exactly, and
+watch the same thing happen more subtly. That is what collinearity looks like in
+real data.
+
+### 6. Linear regression, and the assumptions it makes
+
+Fit an ordinary least squares model predicting total post-cutoff spend. Plot the
+residuals against the fitted values.
+
+You will see a fan shape and a wall at zero. Both are assumption violations, and
+question 4 asks you which parts of your conclusions they invalidate — the answer
+is not "all of them".
+
+## Logistic regression, in one box
+
+It is linear regression on the log-odds:
+
+```
+log(p / (1 - p)) = b + w1*x1 + w2*x2 + ...
+p = sigmoid(b + w1*x1 + ...)
+```
+
+That sigmoid is the same function you differentiated by hand in node 1.2, and the
+optimizer sklearn uses is a more careful relative of the gradient descent you
+wrote in node 1.5. Nothing new has been introduced — it has been packaged.
+
+## Common walls
+
+**Your AUC is around 0.16.** Sign flip. See node 2.1.
+
+**Convergence warnings.** Raise `max_iter`, and check that you are standardizing —
+the default solver struggles badly on unscaled features, which is node 1.5's
+conditioning lesson appearing in a library.
+
+**Your accuracy is 0.77 and you are pleased.** Against a majority-class baseline
+of 0.5624, that is a real improvement, but accuracy is a poor choice here and
+node 2.4 is about why. Report AUC.
+
+**Your `avg_basket` has infinities.** Some customer has zero transactions in your
+grouping, which means your population filter is not matching your feature table.
+Both should be the 2,756 customers with pre-cutoff activity.
+
+**You standardized before splitting.** It will not change these numbers
+noticeably, and it is still wrong. Node 2.3 is next, and it exists for this.
+
+## Before you move on
+
+Node 2.3 is the highest-value node in the roadmap and it uses exactly the
+pipeline discipline this node introduced. You have now built a model whose
+honest score is 0.839; next you meet one whose dishonest score is 0.997.

@@ -1,0 +1,242 @@
+---
+id: "6.1"
+phase: 6
+order_index: 1
+title: "Serving a model"
+slug: "serving-a-model"
+prereqs: ["2.6"]
+status: "published"
+goal: "You can put a trained model behind an HTTP endpoint that someone else can call, and you know what it does at ten times the load you tested."
+resources:
+  primary:
+    name: "FastAPI — Tutorial, through Request Body and Response Model"
+    url: "https://fastapi.tiangolo.com/"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "BentoML — documentation and serving guides"
+    url: "https://docs.bentoml.com/en/latest/"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Serve the fraud model from node 2.6 behind a real HTTP API with input validation, health checks and a latency budget. Then load-test it, find the concurrency at which it falls over, and fix the first thing that breaks."
+  difficulty: "medium"
+checklist:
+  - "My endpoint returns a prediction for a valid request and I have the exact curl command that produces it saved in the README"
+  - "A request with a missing required field returns 422 with a message naming the field, not a 500"
+  - "A request with a string where a number belongs returns 422, not a silent coercion"
+  - "My /health endpoint returns 200 without loading or running the model"
+  - "My model is loaded exactly once at startup, not per request, and I proved it by logging in the load path and seeing one line"
+  - "I measured p50, p95 and p99 latency over at least 1,000 requests, and p99 is at least 2x p50"
+  - "I found the concurrency level at which p99 latency exceeds my stated budget, and I wrote that number down"
+  - "My response includes the model version, and I can tell from a response alone which artifact produced it"
+  - "I sent a batch of 100 rows in one request and it is faster per row than 100 separate requests — I measured both"
+  - "My service logs every prediction with its inputs, output and latency, and I can find a specific past request in the logs"
+questions:
+  - prompt: "Explain why the model must be loaded at startup rather than per request, and describe what you would see if you got it wrong."
+    answer_key: >-
+      Loading a model means reading an artifact from disk and deserialising it,
+      which takes anywhere from milliseconds to many seconds depending on size.
+      Doing that per request adds that cost to every single call, and it is pure
+      waste because the artifact does not change between requests. What you would
+      see: latency dominated by a large constant that does not vary with input
+      size, memory that climbs and falls sharply as objects are allocated and
+      collected, and throughput that does not improve when you add workers because
+      each one is doing the same redundant work. It also gets worse under
+      concurrency rather than better, since several simultaneous loads compete for
+      disk and memory. The fix is to load once at process startup and hold the
+      object, which is what a FastAPI lifespan handler or a module-level load
+      does. The related trap is loading in a way that does not survive forking:
+      some servers fork workers after startup, and a model loaded before the fork
+      may be copied per worker, multiplying memory.
+  - prompt: "Your p99 latency is much higher than your p50. Explain what causes that gap and why p99 is the number that matters."
+    answer_key: >-
+      The gap comes from everything that does not happen on every request:
+      garbage collection pauses, a cold cache line or page fault, contention for
+      the GIL or for a thread pool, an occasional larger input, connection setup,
+      and queueing when several requests arrive at once. Under concurrency,
+      queueing dominates — a request that arrives while others are being served
+      waits, and that wait is invisible in the median because most requests do not
+      experience it. P99 matters because it is what users actually experience at
+      scale: with a hundred requests per second, one percent is one slow request
+      per second, and a page that makes several calls has a high chance of hitting
+      at least one of them. Reporting the mean is worse still, since a heavy tail
+      pulls it around unpredictably and it corresponds to no real experience. This
+      is the same argument as node 5.5's maximum step count, and the same as why
+      node 1.3's Cauchy example matters: with a heavy tail, the average is not a
+      description of anything.
+  - prompt: "A batch of 100 rows in one request is faster per row than 100 separate requests. Explain why, and say what you give up by batching."
+    answer_key: >-
+      Per-request overhead is largely fixed: HTTP parsing, validation, framework
+      dispatch, model call setup, response serialisation. Amortising it over a
+      hundred rows makes it nearly disappear per row. The prediction itself also
+      vectorises — one call on a matrix of a hundred rows uses efficient array
+      operations and, on a GPU, keeps the device busy, where a hundred separate
+      calls of one row each spend most of their time on overhead. Speedups of ten
+      times or more per row are ordinary. What you give up is latency for the
+      individual item: a row that arrives first has to wait for the batch to
+      assemble, so the caller experiences the whole batch's latency rather than
+      its own. You also give up isolation — one malformed row can fail the batch —
+      and you complicate error handling, since a partial failure needs a
+      per-row response rather than one status code. The usual resolution is to
+      offer both: a batch endpoint for offline scoring and a single endpoint for
+      interactive use, or dynamic batching with a short timeout that trades a few
+      milliseconds of latency for throughput.
+  - prompt: "Your response includes a model version. Explain what problem that solves, and what else you would need to fully reproduce a past prediction."
+    answer_key: >-
+      It solves attribution. When someone reports that a prediction was wrong, the
+      first question is which model made it, and without a version in the response
+      the answer is a guess based on deployment timestamps. With it you can
+      reproduce the exact behaviour, know whether the case predates a change, and
+      decide whether a rollback would fix it. It also makes canary and A/B
+      deployments legible, since responses from two versions can be compared
+      directly. To fully reproduce a past prediction you need more: the exact
+      input as received, including anything the service filled in by default; the
+      version of the preprocessing code, which is often separate from the model
+      artifact and is a common source of training-serving skew; any feature values
+      fetched from elsewhere at prediction time, since those change and cannot be
+      reconstructed later; and the library versions, because a serialised model
+      loaded under a different sklearn can behave differently or refuse to load.
+      Logging the input alongside the output and the version is what makes all
+      this recoverable, which is why the last checklist item exists.
+reflection_prompt: "What broke first under load, and would you have predicted it? Write down what you would check first on the next service you deploy."
+struggle_signals:
+  - "learner loads the model inside the request handler"
+  - "learner reports mean latency"
+  - "learner never load-tests"
+  - "learner returns 500 for bad input"
+  - "learner cannot tell which model version produced a given response"
+---
+
+## Why this node exists
+
+A model in a notebook is not a product. This is the smallest step that makes it
+one, and it is where a set of software concerns arrive that nothing earlier in
+this roadmap has required: validation, error codes, concurrency, latency
+distributions, and versioning.
+
+The specific thing worth learning here is that the interesting failures are all
+about load. A service that works for one request usually works. A service that
+works for a thousand concurrent requests is a different piece of software.
+
+## The session
+
+Serve the gradient boosting model from node 2.6.
+
+### 1. The endpoint
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
+
+class Transaction(BaseModel):
+    amount: float = Field(gt=0)
+    hour: int = Field(ge=0, le=23)
+    country: str
+    category: str
+    distinct_cards_on_device_24h: int = Field(ge=0)
+
+app = FastAPI()
+
+@app.on_event("startup")
+def load():
+    app.state.model = joblib.load("model.joblib")     # ONCE
+    app.state.version = "fraud-2.6.0"
+
+@app.post("/predict")
+def predict(txn: Transaction):
+    ...
+    return {"fraud_probability": p, "model_version": app.state.version}
+```
+
+Pydantic gives you 422 with a useful message for free. Test it:
+
+```bash
+curl -X POST localhost:8000/predict -H 'content-type: application/json' \
+  -d '{"amount": 412.5, "hour": 3, "country": "BR", "category": "gambling", "distinct_cards_on_device_24h": 4}'
+```
+
+Then send it a request with `hour` missing, and one with `"amount": "lots"`. Both
+must be 422, not 500 and not a silent coercion.
+
+### 2. Health, separately
+
+`/health` returns 200 without touching the model. Orchestrators call it every few
+seconds and it must be cheap.
+
+Consider a separate `/ready` that does check the model is loaded — liveness and
+readiness answer different questions.
+
+### 3. Prove the model loads once
+
+Log a line in the load path. Send fifty requests. Count the lines. It should be
+one.
+
+This is the single most common performance bug in model serving and it is
+invisible until you look.
+
+### 4. Latency, as a distribution
+
+```bash
+# hey, oha, wrk, or locust - any of them
+hey -n 1000 -c 10 -m POST -D body.json http://localhost:8000/predict
+```
+
+Record **p50, p95, p99** — never the mean. Question 2 is about why.
+
+### 5. Find where it breaks
+
+Raise concurrency: 1, 10, 50, 100, 200. Plot p99 against concurrency.
+
+State a latency budget first — say 100ms at p99 — then find the concurrency at
+which you exceed it. **Write that number down.** It is your capacity, and it is
+the number you need before anyone asks whether you can handle launch traffic.
+
+### 6. Batch
+
+Add `/predict/batch` taking a list. Compare 100 rows in one request against 100
+requests of one row.
+
+Then read question 3 on what batching costs you.
+
+### 7. Log everything
+
+Every prediction: inputs, output, model version, latency, timestamp. Structured,
+one JSON object per line.
+
+Then find a specific past request in the logs. If you cannot, the logging is not
+finished — and node 6.5 cannot monitor what was never recorded.
+
+## What to return, and when
+
+| Situation | Status |
+|---|---|
+| Valid request | 200 |
+| Malformed or missing fields | 422 |
+| Model not loaded yet | 503 |
+| Model raised on valid input | 500, and log it loudly |
+| Rate limited | 429 |
+
+A 500 for bad input hides a client bug behind an apparent server bug, and
+somebody will spend an afternoon on it.
+
+## Common walls
+
+**Latency is 200ms and you expected 2ms.** Model loading per request, or you are
+constructing a pandas DataFrame per call — which is surprisingly expensive.
+Predict from a numpy array directly.
+
+**Throughput does not improve with more workers.** For a CPU-bound model, the GIL
+means threads do not help. Use multiple processes, via `uvicorn --workers` or
+gunicorn.
+
+**Pydantic coerces `"5"` to `5`.** Version-dependent behaviour. In Pydantic v2,
+strict mode prevents it. Decide deliberately which you want.
+
+**It works locally and fails in the container.** Node 6.2, immediately.
+
+## Before you move on
+
+Node 6.2 puts this in a container so it runs somewhere other than your laptop,
+and closes the last reproducibility gap that node 0.4's virtual environment could
+not reach.

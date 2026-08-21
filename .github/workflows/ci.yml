@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Non-negotiable 6: a malformed prerequisite or a duplicate id fails the build
+  # rather than surfacing as a broken graph in production.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      # Strict from the start: all 40 nodes from Appendix A exist in /content
+      # (most as status: planned), so every prereq resolves and every node is
+      # reachable. A dangling prereq is a hard failure, not a warning.
+      - name: Validate content
+        run: pnpm validate:content --strict
+
+      # The committed datasets must be reproducible from the generator, or the
+      # numbers in the checklists stop meaning anything.
+      - name: Datasets are reproducible
+        run: |
+          pnpm gen:datasets
+          git diff --exit-code -- public/datasets \
+            || (echo "::error::public/datasets is out of sync with scripts/gen-datasets.ts. Run pnpm gen:datasets and commit." && exit 1)

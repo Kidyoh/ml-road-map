@@ -1,0 +1,232 @@
+---
+id: "4.1"
+phase: 4
+order_index: 1
+title: "Why nets, and tensors (build micrograd)"
+slug: "micrograd"
+prereqs: ["2.7"]
+status: "published"
+goal: "You have written an autograd engine from scratch and verified its gradients against the numerical checker you built in node 1.2."
+resources:
+  primary:
+    name: "Andrej Karpathy — The spelled-out intro to neural networks and backpropagation"
+    url: "https://www.youtube.com/watch?v=VMj-3S1tku0"
+    type: "video"
+    cost: "free"
+  alt:
+    name: "karpathy/micrograd — the reference implementation, about 150 lines"
+    url: "https://github.com/karpathy/micrograd"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Build a scalar autograd engine — a Value class that records operations and knows how to send gradients backwards through them. Verify every operation against your gradcheck helper from node 1.2. Then train a tiny network with it and beat a baseline you compute first."
+  difficulty: "hard"
+checklist:
+  - "My Value class supports add, multiply, power, tanh and exp, and every one passes gradcheck with relative error below 1e-6"
+  - "I imported gradcheck from the file I wrote in node 1.2 without modifying it"
+  - "For the expression from node 1.2 — sigmoid(w*x + b) then squared error — my engine's gradients match the ones I derived by hand to at least 8 decimal places"
+  - "My backward pass uses a topological sort, and I can show a case where processing nodes in the wrong order gives a wrong gradient"
+  - "A node used twice in one expression, such as `y = x * x`, accumulates gradient rather than overwriting — I tested `x * x` at x=3 and got dy/dx = 6, not 3"
+  - "I deliberately replaced `+=` with `=` in my backward pass and watched a gradient become wrong, then put it back"
+  - "My 2-layer MLP with 2 inputs, 4 hidden units and 1 output has exactly 17 parameters, counted by hand: (2*4+4) + (4*1+1)"
+  - "That network trains on a small non-linearly-separable dataset and reaches a loss at least 10x lower than a linear model on the same data"
+  - "Every gradient in the trained network passes gradcheck at the end of training, not just at initialization"
+questions:
+  - prompt: "Explain what the backward pass is actually doing, in terms of the chain rule from node 1.2. Why does it need a topological sort?"
+    answer_key: >-
+      The forward pass builds a directed acyclic graph where each node is a value
+      and each edge records which operation produced it from which inputs. The
+      backward pass walks that graph from the output toward the inputs, and at
+      each node multiplies the gradient that arrived from above by the local
+      derivative of the operation that produced it — which is exactly the chain
+      rule, applied one edge at a time. The topological sort matters because a
+      node's gradient is only complete once every path from the output to it has
+      contributed. If you process a node before all of its consumers, you send
+      onward a partial gradient, and everything downstream of that point is wrong
+      by however much was missing. Reverse topological order guarantees that when
+      you reach a node, every consumer has already been processed. This is also
+      why the gradient must accumulate with += rather than assign: a node used in
+      several places receives one contribution per path, and the total derivative
+      is their sum.
+  - prompt: "You changed `+=` to `=` in the backward pass and a gradient became wrong. Give the concrete example, and say what mathematical rule the `+=` implements."
+    answer_key: >-
+      The simplest case is y = x * x. There is one node x feeding two inputs of
+      the same multiply, so the backward pass visits x twice: once as the left
+      operand, contributing the value of the right operand, and once as the right,
+      contributing the left. Each contribution is 3 when x is 3, and the correct
+      total is 6. With assignment instead of accumulation, the second visit
+      overwrites the first and you get 3 — exactly half. The rule += implements is
+      the multivariable chain rule: when a variable influences the output through
+      several paths, the total derivative is the sum of the derivatives along each
+      path. This shows up constantly in real networks — any weight shared between
+      time steps in a recurrent net, any parameter reused across positions, any
+      skip connection where a value is both transformed and passed through
+      unchanged. Every one of those is a node with more than one consumer, and
+      every one of them is silently wrong if the accumulation is missing. Nothing
+      raises; the loss simply stops going down as fast as it should.
+  - prompt: "Your MLP has exactly 17 parameters. Walk through the count, then say how the same arithmetic scales to a layer with 784 inputs and 128 outputs."
+    answer_key: >-
+      A dense layer from n inputs to m outputs has a weight matrix of n by m plus
+      m biases, so n*m + m parameters. The first layer here is 2 inputs to 4
+      hidden: 2*4 = 8 weights plus 4 biases = 12. The second is 4 hidden to 1
+      output: 4*1 = 4 weights plus 1 bias = 5. Total 17. For 784 to 128 the same
+      formula gives 784*128 = 100,352 weights plus 128 biases = 100,480, which is
+      the first layer of the MNIST network in node 4.2. Being able to do this
+      arithmetic in your head is more useful than it sounds: it tells you whether
+      a model will fit in memory, roughly how much data you need before
+      overfitting becomes the dominant concern, and whether a reported parameter
+      count is plausible. It is also the fastest way to find a bug in an
+      architecture — if your framework reports a number that does not match your
+      hand count, one of your layer shapes is not what you think it is.
+  - prompt: "You have now written the thing PyTorch does. What does PyTorch add beyond what you built, and which of those additions changes what is possible rather than merely what is fast?"
+    answer_key: >-
+      Mostly it adds speed and breadth. Tensors instead of scalars, so one node
+      holds a whole array and one operation dispatches to a compiled kernel over
+      millions of elements rather than a Python object per number — that alone is
+      a factor of thousands. GPU execution. A large library of operations, each
+      with a hand-written and tested backward. Optimisers, initialisation schemes,
+      data loading, checkpointing, distributed training, and compilation to fused
+      kernels. Almost all of that is performance and convenience: your engine
+      computes the same gradients, just impractically slowly. What genuinely
+      changes what is possible is scale itself — a factor of a million in
+      throughput is not a quantitative difference, it is the difference between
+      models that can exist and models that cannot. The other qualitative addition
+      is correctness at breadth: hundreds of operations with verified backward
+      passes, which is what lets you compose an architecture without deriving
+      anything. The conceptual content, though, is what you just built, and that
+      is why this node is not skippable.
+reflection_prompt: "Backpropagation had a reputation before you implemented it. Now that you have, what was it actually — and what part of the reputation was earned?"
+struggle_signals:
+  - "learner copies the reference implementation without deriving the local gradients"
+  - "learner cannot explain why the topological sort is needed"
+  - "learner skips gradcheck because the loss goes down"
+  - "learner uses = instead of += and never notices"
+---
+
+## Why this node exists
+
+Appendix B says it plainly: **explicitly not skippable.**
+
+Every framework you will use from here hides backpropagation behind one method
+call, and it is entirely possible to have a productive career never knowing what
+that call does. It is also the reason a certain class of bug is impossible to
+debug: gradients that are silently wrong, losses that plateau for structural
+reasons, and architectures that cannot train because of where the gradient dies.
+
+You will write about 100 lines. Karpathy's video is two and a half hours and is
+the best explanation of this material that exists.
+
+## The session
+
+### 1. The Value class
+
+One scalar, plus the bookkeeping to differentiate it:
+
+```python
+class Value:
+    def __init__(self, data, _children=(), _op=""):
+        self.data = data
+        self.grad = 0.0
+        self._backward = lambda: None      # how to send grad to my inputs
+        self._prev = set(_children)
+        self._op = _op
+
+    def __add__(self, other):
+        other = other if isinstance(other, Value) else Value(other)
+        out = Value(self.data + other.data, (self, other), "+")
+        def _backward():
+            self.grad  += out.grad          # d(a+b)/da = 1
+            other.grad += out.grad
+        out._backward = _backward
+        return out
+```
+
+Implement `__mul__`, `__pow__`, `tanh`, `exp` the same way. **Derive each local
+gradient yourself before writing it.** Copying them from the reference is the one
+way to spend three hours here and learn nothing.
+
+### 2. The backward pass
+
+```python
+def backward(self):
+    topo, visited = [], set()
+    def build(v):
+        if v in visited: return
+        visited.add(v)
+        for child in v._prev:
+            build(child)
+        topo.append(v)
+    build(self)
+
+    self.grad = 1.0                        # d(self)/d(self)
+    for v in reversed(topo):
+        v._backward()
+```
+
+Note `+=` in every `_backward`. That is the multivariable chain rule and it is
+the single most important character in the file.
+
+### 3. Verify against node 1.2
+
+Import your gradcheck. Do not modify it — its independence from this code is the
+whole reason it is worth anything.
+
+Check each operation individually, then the composed expression from node 1.2:
+
+```
+z = w * x + b
+s = sigmoid(z)
+L = (s - y) ** 2
+```
+
+You derived those gradients by hand in node 1.2. Your engine should reproduce
+them to 8 decimal places.
+
+### 4. Break the accumulation on purpose
+
+Change one `+=` to `=`. Test `y = x * x` at `x = 3`.
+
+Correct: `dy/dx = 6`. Broken: `3`.
+
+Then put it back. This is the checklist item most likely to save you a day at
+some point in the future.
+
+### 5. Train something
+
+Build an MLP: 2 inputs, 4 hidden with tanh, 1 output. **17 parameters** —
+`(2*4 + 4) + (4*1 + 1)`. Count them by hand and confirm against your code.
+
+Train it on something a linear model cannot do — the classic two-moons or XOR.
+Fit a logistic regression first for the baseline, then beat it by at least 10x
+on loss.
+
+Then gradcheck **after training**. Gradients that are correct at initialisation
+and wrong at convergence is a real failure mode, usually from a saturated
+activation.
+
+## Common walls
+
+**Your gradients are all zero.** You forgot `self.grad = 1.0` on the output
+before walking backwards, or you are calling `backward()` on something that is
+not the final loss.
+
+**Gradients accumulate across training steps.** You must zero them before every
+backward pass. PyTorch has the same requirement, which is why `zero_grad()`
+exists and why forgetting it is a rite of passage.
+
+**Your topological sort recurses too deep.** Python's default recursion limit is
+1000. For a deep graph, write the DFS iteratively.
+
+**tanh gradient is wrong.** `d/dx tanh(x) = 1 - tanh(x)^2`, expressible in terms
+of the forward output — the same trick as the sigmoid in node 1.2, and the same
+reason to cache the forward value.
+
+**Loss decreases but gradcheck fails.** Trust gradcheck. A partially-wrong
+gradient often still points roughly downhill, so the loss falling is very weak
+evidence. This is exactly what node 1.2 built the checker for.
+
+## Before you move on
+
+Node 4.2 rebuilds the same network twice — once by hand in numpy, once in
+PyTorch — and requires the two to agree. Having this engine in your head is what
+makes PyTorch legible rather than magic.

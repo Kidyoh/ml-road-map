@@ -1,0 +1,244 @@
+---
+id: "3.1"
+phase: 3
+order_index: 1
+title: "Feature engineering"
+slug: "feature-engineering"
+prereqs: ["2.3"]
+status: "published"
+goal: "You can build features from raw transactional data without leaking the future across your cutoff date, and you can tell which of them earned their place."
+resources:
+  primary:
+    name: "Feature Engineering and Selection — Kuhn and Johnson, chapters 1 to 6"
+    url: "https://bookdown.org/max/FES/"
+    type: "book"
+    cost: "free"
+  alt:
+    name: "Kaggle Learn — Feature Engineering"
+    url: "https://www.kaggle.com/learn/feature-engineering"
+    type: "course"
+    cost: "free"
+session:
+  brief: "Build twenty features from the retail transactions, every one of them computed strictly before the cutoff. Then write an assertion that would catch you if you were wrong, and find out which of the twenty actually beat the single recency column from node 2.1."
+  dataset: "/datasets/retail-events.csv"
+  difficulty: "hard"
+checklist:
+  - "My feature table has at least 20 columns and exactly 2,756 rows, one per customer with pre-cutoff activity"
+  - "I wrote an automated assertion that fails if any feature-building code reads a row with order_date >= 2024-10-01, and I proved it works by deliberately breaking one feature and watching it fire"
+  - "My recency, frequency and monetary features reproduce node 2.1's numbers: median recency 47 days, median frequency 6"
+  - "My baseline to beat is 0.8376 ROC AUC from recency alone, and I wrote it at the top of the notebook"
+  - "My 20-feature model's 5-fold CV ROC AUC is recorded, and I stated whether it beat 0.8376 by more than one cross-validation standard deviation"
+  - "I built at least 3 features that are ratios or rates rather than raw counts, and at least 2 that describe change over time within the pre-cutoff window"
+  - "I computed permutation importance on held-out data and identified how many of my 20 features have importance indistinguishable from zero"
+  - "I built one feature that is definitely a leak, measured how much it improves the score, and then deleted it"
+  - "For every feature I kept, I can name the moment its value becomes known in a production system"
+questions:
+  - prompt: "Describe the leaky feature you built on purpose, how much it improved the score, and how you would have caught it if you had not planted it yourself."
+    answer_key: >-
+      A good planted leak here is total spend over the whole file rather than up
+      to the cutoff, or a customer's transaction count computed from the full
+      table, or days-until-next-purchase measured from the cutoff forward. Any of
+      these improve the score enormously — typically to near-perfect — because
+      they encode the label directly. How you would catch it without knowing:
+      first, suspicion at the size of the improvement, since a single feature that
+      adds 0.15 AUC is far more often a leak than an insight. Second, the
+      timestamp question from node 2.3 applied to every column: when does this
+      value become known, and is that before the cutoff. Third, and most reliably,
+      a structural guard — build features only from a dataframe you filtered to
+      pre-cutoff rows once, at the top, and assert that the filtered frame's
+      maximum date is below the cutoff. That last one is the only defence that
+      scales past a handful of features, because reasoning about each column
+      individually stops working at twenty and is hopeless at two hundred.
+  - prompt: "Several of your twenty features had permutation importance near zero. Argue for keeping them, then argue for dropping them, and say which you would actually do."
+    answer_key: >-
+      For keeping: permutation importance understates correlated features,
+      because shuffling one lets the model lean on its neighbour, so a feature
+      measuring near zero may be carrying real signal that another column
+      duplicates. Tree models are also fairly robust to irrelevant inputs, so the
+      cost of keeping them is small, and a feature that is useless now may matter
+      after the population or the data distribution shifts. For dropping: every
+      feature is code that must be computed, stored, monitored and kept correct in
+      production, and each one is a place where training and serving can disagree.
+      Fewer features means faster training, cheaper serving, simpler debugging and
+      less to get wrong. What I would actually do: drop them, but by group rather
+      than individually — remove all the near-zero features at once and confirm
+      the score does not move, since dropping one at a time is misled by exactly
+      the correlation problem that made them look useless. Then keep the survivors
+      and write down what was removed, so the next person does not rebuild it.
+  - prompt: "You built ratio and rate features rather than only raw counts. Explain what a ratio can express that a count cannot, and give an example where the raw count is the better choice."
+    answer_key: >-
+      A ratio normalises away a scale that is not the thing you care about. Twelve
+      transactions means something different for a customer of two months and one
+      of two years, so transactions per active month separates behaviour from
+      tenure in a way the raw count cannot. Similarly, spend in the last thirty
+      days divided by average monthly spend expresses whether someone is
+      accelerating or slowing, which is a different quantity from either number
+      alone and is often what actually predicts. Linear models especially need
+      this, since they cannot construct a ratio from its parts. Where the raw
+      count is better: when the absolute magnitude is the decision-relevant thing.
+      A customer who has spent fifty thousand pounds matters to the business
+      differently from one who has spent fifty, regardless of tenure, and for
+      revenue-weighted decisions the total is the point. Counts are also better
+      when the denominator can be very small, since a ratio with a denominator of
+      one is unstable and generates enormous outliers. The usual answer is to
+      provide both and let the model choose.
+  - prompt: "Twenty engineered features gave you some improvement over one sorted column. Given what node 2.7 taught about where improvement comes from, how would you decide whether to build feature twenty-one or to stop?"
+    answer_key: >-
+      By looking at the errors rather than at the score. If the remaining
+      misclassifications cluster around a pattern that a feature could describe —
+      customers whose behaviour changed sharply in the last month, or who buy
+      seasonally, or whose activity is spread across categories in an unusual way
+      — then there is a specific feature to build and a rough estimate of what it
+      could recover from the size of that cluster. If the errors look
+      unstructured, or cluster around cases where the available data genuinely
+      does not contain the answer, then feature twenty-one is guesswork and the
+      honest next move is different data or a different framing. The other input
+      is the learning curve: if it has converged, more of the same information
+      will not help regardless of how it is arranged, and feature engineering is
+      rearranging information. The general rule is that features built from an
+      error analysis pay off and features built from a list of ideas mostly do
+      not, which is why node 2.7 comes before this one.
+reflection_prompt: "How long did it take you to be confident that none of your twenty features leaked? What would make that confidence cheap on a project with two hundred features?"
+struggle_signals:
+  - "learner aggregates the full table before filtering to the cutoff"
+  - "learner builds many features without measuring any of them"
+  - "learner cannot say when a feature's value becomes known"
+  - "learner is pleased by a feature that adds a large amount of AUC"
+---
+
+## Why this node exists
+
+Appendix B is specific about this node: RFM features on transactional data, with
+the leakage discipline from node 2.3 carried forward across the cutoff date.
+
+Feature engineering is where most of the achievable improvement on a tabular
+problem lives — node 2.7 spent its whole session pointing here. It is also where
+leakage is easiest to introduce, because the natural way to write the code
+aggregates the whole table, and the whole table includes the future.
+
+Twenty features is enough that you cannot hold the correctness of each one in
+your head. That is the point: this node is about building a *structural* defence
+rather than a careful one.
+
+## The session
+
+[`retail-events.csv`](/datasets/retail-events.csv), the dataset you framed in
+node 2.1. Same cutoff, same population, same label.
+
+| | |
+|---|---|
+| Cutoff | 2024-10-01 |
+| Population | 2,756 customers with pre-cutoff activity |
+| Label | transacted on or after the cutoff — 1,550 positive, base rate 0.5624 |
+| **Baseline to beat** | **0.8376 ROC AUC**, recency alone |
+
+### 1. The structural guard, first
+
+Before any feature:
+
+```python
+pre = df[df.order_date < CUTOFF].copy()
+assert pre.order_date.max() < CUTOFF, "pre-cutoff frame contains future rows"
+
+# every feature is built from `pre`. `df` is never touched again.
+```
+
+Then go further — make it impossible rather than merely disciplined:
+
+```python
+def build_features(frame):
+    assert frame.order_date.max() < CUTOFF
+    ...
+```
+
+**Prove the guard works.** Deliberately pass the unfiltered frame and watch it
+fire. A guard you have never seen trip is a guard you do not know is connected.
+
+### 2. Twenty features
+
+Aim for a spread across these families:
+
+| Family | Examples |
+|---|---|
+| Recency | days since last purchase, days since first |
+| Frequency | count, count in last 30/90 days, active months |
+| Monetary | total, mean, max, standard deviation of basket |
+| Rates | transactions per active month, spend per month |
+| Trend | last-30-day spend over average monthly spend, gap between last two purchases |
+| Diversity | distinct categories, share in top category, distinct channels |
+| Timing | share of weekend purchases, most common hour |
+
+The checklist asks for at least three ratios and at least two describing change
+over time. Those are the families people skip, and they are usually the ones that
+add something a raw count cannot.
+
+### 3. Measure, do not accumulate
+
+Fit after each family and record the number. A feature that does not move the
+score is a feature you are choosing to maintain forever for no reason.
+
+Then permutation importance, on held-out data, per node 2.5. Count how many of
+your twenty are indistinguishable from zero. It is usually more than half.
+
+### 4. Build a leak on purpose
+
+Add one of these, measure it, then delete it:
+
+- total spend computed from the full table rather than from `pre`
+- number of transactions in the label window
+- days until next purchase, measured forward from the cutoff
+
+Watch the AUC jump. Note how good it feels. That feeling is the thing node 2.3
+was inoculating you against — question 1 asks how you would have caught it
+without knowing.
+
+### 5. The production question
+
+For every feature you keep, answer: **when does this value become known?**
+
+If the answer requires a nightly batch job that has not run yet at prediction
+time, the feature is unavailable in production even though it is perfectly
+legitimate in training. That is a different problem from leakage and it is just
+as fatal.
+
+## The pattern that prevents most leaks
+
+```python
+# WRONG - aggregates everything, then filters
+features = df.groupby("customer_id").agg(...)
+features = features[features.index.isin(population)]
+
+# RIGHT - filters everything, then aggregates
+pre = df[df.order_date < CUTOFF]
+features = pre.groupby("customer_id").agg(...)
+```
+
+The two differ by one line and produce completely different models. The first one
+looks fine in review and scores 0.99.
+
+## Common walls
+
+**Your row count is not 2,756.** You have customers with no pre-cutoff activity,
+or you built features from `df` rather than `pre` and picked up the extra 24.
+
+**Your ratios have infinities.** Division by an active-month count of zero. Guard
+the denominator, and think about whether the guard value you choose is itself
+telling the model something.
+
+**A feature adds 0.1 AUC and you are delighted.** Check it. On this dataset,
+after recency, nothing legitimate should be worth that much.
+
+**Your rolling-window features are slow.** Groupby-apply over 2,756 groups is
+fine; groupby-apply with a Python function over 27,480 rows is not. Use vectorized
+aggregations or `pd.Grouper` where you can.
+
+**Permutation importance says everything is unimportant.** Your features are
+highly correlated with each other, which is expected for RFM variants. Permute
+groups of related features together, or use a method designed for correlated
+inputs.
+
+## Before you move on
+
+Node 3.2 takes these features and puts the encoding and scaling *inside* a
+pipeline, which is where node 2.3's second leak lived. You have built the
+features; next you make the transformations as safe as the features.

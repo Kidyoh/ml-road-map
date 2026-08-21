@@ -1,0 +1,224 @@
+---
+id: "7.1"
+phase: 7
+order_index: 1
+title: "Own problem, own data, shipped"
+slug: "capstone"
+prereqs: ["6.6"]
+status: "published"
+goal: "You have shipped a system on a problem nobody set for you, using data you sourced yourself, and another person has reviewed it."
+resources:
+  primary:
+    name: "Made With ML — end-to-end project guides"
+    url: "https://madewithml.com/"
+    type: "course"
+    cost: "free"
+  alt:
+    name: "Rules of Machine Learning — Martin Zinkevich"
+    url: "https://developers.google.com/machine-learning/guides/rules-of-ml"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Choose a problem nobody assigned you. Source the data yourself. Beat a baseline you established before modelling. Deploy it, monitor it, and write the README. Then have another person review it against this checklist — the peer review is required, not optional."
+  difficulty: "hard"
+checklist:
+  - "My dataset is self-sourced — scraped, collected, an API I pulled from, or my own records — and is not a Kaggle or sklearn dataset"
+  - "I wrote the problem spec before touching the data: prediction unit, label, cutoff, population, and the decision it changes"
+  - "I established a baseline before any modelling, and recorded its number in the README"
+  - "My final model beats that baseline by more than the noise, and I stated both numbers and the noise estimate"
+  - "My eval set has at least 50 cases and every label was assigned by a human"
+  - "My model is deployed at a URL another person can call, and I have the working curl command in the README"
+  - "I have a monitoring dashboard showing at least request volume, latency and prediction distribution over time"
+  - "I deliberately broke one component and my monitoring caught it — I recorded which alert fired and how long it took"
+  - "My README explains what I would do with ten times the data, and the answer is specific rather than 'train a bigger model'"
+  - "My README states at least one thing the system does badly, and one situation where it should not be used"
+  - "Another person has reviewed this against the checklist and their written feedback exists"
+  - "I addressed or explicitly declined every point in that review, in writing"
+questions:
+  - prompt: "State your baseline, your final number, and your noise estimate. Then answer honestly: was the modelling work worth it?"
+    answer_key: >-
+      The honest answer is frequently no, and saying so is the mark of the node
+      landing rather than of the project failing. Node 2.2 produced a model that
+      beat a single sorted column by 0.0006 AUC; node 2.6 produced one that beat
+      a linear model by 0.12. Both are real outcomes and only one of them
+      justifies the model. What makes the answer meaningful is that all three
+      numbers exist: without the baseline there is nothing to compare against,
+      and without the noise estimate a difference of two points is
+      indistinguishable from luck. If the modelling was not worth it, the correct
+      conclusion is not that the project failed — it is that you now know the
+      signal in this data is simple, that a rule can be shipped instead of a
+      model, and that further effort belongs on data or framing rather than on
+      algorithms. That finding took a day and would otherwise have been
+      discovered after a quarter of tuning.
+  - prompt: "What would you do with ten times the data? Be specific about what changes and what does not."
+    answer_key: >-
+      The answer must come from the learning curve, not from intuition. If the
+      curves have converged, ten times the data changes nothing and saying so is
+      the whole answer — the constraint is the features or the framing, and more
+      rows of the same thing will not move it. If the validation curve is still
+      rising, more data helps, and the useful version of the answer estimates by
+      how much from the curve's slope. What tends to change with an order of
+      magnitude more data: rare classes and rare slices become modellable, so
+      problems that had to be aggregated can be split; higher-capacity models
+      become viable where they previously overfit; and finer-grained features,
+      particularly high-cardinality categoricals, stop being noise. What does not
+      change: a mislabelled target stays mislabelled, a leaky feature stays leaky
+      at scale, a badly framed problem stays badly framed, and any bias in how the
+      data was collected is reproduced faithfully at ten times the volume. Ten
+      times more of a biased sample is a more confident wrong answer.
+  - prompt: "Name something your system does badly and a situation where it should not be used. Explain why volunteering this is a professional strength rather than a weakness."
+    answer_key: >-
+      Any honest limitation — poor performance on a particular segment, a
+      dependence on a data source that could disappear, a training population that
+      does not match some group of real users, a latency profile unsuitable for
+      interactive use, an inability to explain individual predictions where a
+      regulation requires it. Volunteering it is a strength for three reasons.
+      First, the limitations exist whether or not you name them, and the only
+      question is whether they are discovered by you now or by a user later; the
+      second is far more expensive and damages trust in everything else you built.
+      Second, stating the boundary is what makes the rest of the claim credible —
+      a system described as working everywhere has not been evaluated carefully
+      enough to know where it does not. Third, it lets other people make good
+      decisions: someone deciding whether to build on your work needs the failure
+      modes more than the headline metric. The professional norm worth adopting is
+      that a model card or limitations section is part of the deliverable, not an
+      apology appended to it.
+  - prompt: "Your reviewer found something. What was it, did you agree, and what does their finding tell you about what you cannot see in your own work?"
+    answer_key: >-
+      Any specific finding is fine; what the question tests is whether the review
+      was real. The most common things a reviewer catches that the author cannot:
+      a leak the author has looked at so many times it has become invisible, an
+      assumption stated in the author's head but not in the README, a baseline
+      that was not as naive as claimed, an eval set that only contains cases the
+      system passes, and a README that makes sense only to someone who already
+      knows the project. The general point is that authorship destroys the ability
+      to read your own work as a stranger would — you cannot un-know the context,
+      so you cannot tell what is missing from the page. That is exactly the same
+      reason node 4.2 required two independent implementations to agree and node
+      1.2 required a gradient checker written before the thing it checks: an
+      independent perspective catches a class of error that no amount of care from
+      inside can. Disagreeing with a review point is legitimate; declining it
+      without a written reason is not.
+reflection_prompt: "Look back at node 0.1. What can you do now that you could not do then — and more usefully, what do you now know you cannot do?"
+struggle_signals:
+  - "learner picks a well-known benchmark dataset"
+  - "learner has no baseline"
+  - "learner skips deployment because the model is good enough"
+  - "learner cannot name a weakness of their own system"
+  - "learner skips the peer review"
+---
+
+## Why this node exists
+
+Everything before this was scaffolded. The problem was chosen for you, the data
+was handed to you, the checklist told you what correct looked like, and the
+answer key was one click away.
+
+None of that is available here, and that is the entire point. The capstone is the
+first evidence that you can do this rather than follow this.
+
+## What is required
+
+From the build plan, verbatim:
+
+> a self-sourced dataset, a baseline that was beaten, a hand-written eval set, a
+> deployed endpoint, a monitoring dashboard, and a README explaining what they
+> would do with ten times the data. Peer reviewed.
+
+### The dataset must be yours
+
+Not Kaggle. Not sklearn. Not a benchmark.
+
+Scrape something. Pull an API. Use your own records — your git history, your
+spending, your running data, your organisation's tickets. Collect it yourself.
+
+The reason is that curated datasets have had every hard decision made for them
+already: what a row is, what the label means, which rows were excluded, what to
+do about the ambiguous cases. Making those decisions badly, and then discovering
+you made them badly, is most of the skill.
+
+Expect the data collection to take longer than the modelling. That ratio is
+correct and it is what the job is actually like.
+
+### A baseline, established first
+
+Node 2.1's discipline. Write the number down before you model, in the README, and
+do not move it afterwards.
+
+### An eval set of at least 50 hand-labelled cases
+
+Node 5.4's rule, unchanged: model-generated cases do not count. Include cases the
+system gets wrong.
+
+### Deployed, at a URL
+
+Nodes 6.1 and 6.2. Someone else must be able to call it. The curl command goes in
+the README and it must work when they run it.
+
+### Monitored, and tested by breaking something
+
+Node 6.5. The dashboard is not the deliverable — the deliverable is having broken
+a component deliberately and watched the monitoring catch it.
+
+### A README that is honest
+
+- What this is and what decision it changes
+- Baseline, final number, and the noise estimate
+- What it does badly
+- Where it should not be used
+- What you would do with ten times the data, from your learning curve
+
+## The peer review
+
+**Required.** Not optional, not "if you can find someone".
+
+Find another person — someone else working through this roadmap, a colleague, a
+friend who codes. Give them this node's checklist. Ask them to go through it and
+write down what they find.
+
+Then address every point in writing, including the ones you disagree with.
+"Declined, because X" is a complete answer. Silence is not.
+
+Question 4 asks what they caught, and there will be something. Authorship
+destroys your ability to read your own work as a stranger would — it is the same
+reason node 4.2 required two implementations to agree.
+
+## A checklist of the things that go wrong here
+
+Drawn from every phase of this roadmap:
+
+| | Node |
+|---|---|
+| Features computed across the cutoff | 2.3, 3.1 |
+| No baseline, so no idea whether the model helped | 2.1 |
+| Accuracy reported on an imbalanced problem | 2.4 |
+| Preprocessing fitted outside the pipeline | 2.3, 3.2 |
+| Threshold left at 0.5 without a reason | 2.4 |
+| Eval set containing only passing cases | 5.4 |
+| Model loaded per request | 6.1 |
+| Deployed `latest` with no rollback | 6.2 |
+| Cannot reproduce a result from last month | 6.3 |
+| No alert for data that stopped arriving | 6.5 |
+
+Your reviewer should check every row.
+
+## Scope, honestly
+
+The most common failure of a capstone is being too ambitious and finishing
+nothing. A small, complete, deployed, monitored, honestly-documented system beats
+an impressive half-built one, and it beats it by a wide margin — because the
+second one demonstrates nothing that this roadmap taught.
+
+If you must cut, cut model sophistication. Keep the baseline, the eval set, the
+deployment, the monitoring and the README. Those are the parts that are hard to
+learn and the parts nobody skips twice.
+
+## After
+
+You have finished. A few things worth doing with that:
+
+- Write up what surprised you. The list is more valuable than you think, and it
+  will be shorter than you expect.
+- Go back to a node you rushed. Node 2.3 is the usual answer.
+- Review someone else's capstone. Reviewing teaches differently from building.
+- Then pick a problem that matters to you and do it again without the roadmap.

@@ -1,0 +1,243 @@
+---
+id: "2.4"
+phase: 2
+order_index: 4
+title: "Metrics that match the problem"
+slug: "metrics-that-match"
+prereqs: ["2.3"]
+status: "published"
+goal: "You can choose a metric from the cost of being wrong, and spot a metric that is flattering a useless model."
+resources:
+  primary:
+    name: "scikit-learn User Guide — Metrics and scoring, sections 3.4.1 to 3.4.4"
+    url: "https://scikit-learn.org/stable/modules/model_evaluation.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "Google ML Crash Course — Classification: accuracy, precision, recall"
+    url: "https://developers.google.com/machine-learning/crash-course/classification/accuracy-precision-recall"
+    type: "course"
+    cost: "free"
+session:
+  brief: "50,000 card transactions, 222 of them fraudulent. Build a classifier that predicts 'not fraud' for every single row, measure it under six metrics, and find the ones that call it excellent. Then build a real model and choose the threshold from a cost, not from 0.5."
+  dataset: "/datasets/fraud-transactions.csv"
+  difficulty: "medium"
+checklist:
+  - "fraud-transactions.csv has 50,000 rows of which exactly 222 are fraud — a rate of 0.444%"
+  - "My always-predict-not-fraud classifier scores accuracy 0.99556, and I wrote that number down before computing anything else"
+  - "The same classifier scores recall 0.0, F1 0.0, ROC AUC exactly 0.5, and PR AUC 0.00444"
+  - "I can state which of those six metrics make the useless classifier look good and which expose it — and my answer is accuracy alone"
+  - "My PR AUC for the useless classifier equals the base rate 0.00444, not 0.5, and I can explain why the PR baseline is not 0.5"
+  - "My gradient boosting model scores between 0.95 and 0.98 ROC AUC and between 0.92 and 0.94 PR AUC under 5-fold cross-validation"
+  - "That model's accuracy at a 0.5 threshold is 0.99962 — only 0.004 above the useless classifier, despite catching 92% of fraud"
+  - "I built a top-K review table: reviewing the 200 highest-scoring transactions catches about 200 of the 222 frauds"
+  - "I chose a threshold from an explicit cost assumption, wrote the assumption down, and my chosen threshold is not 0.5"
+  - "My confusion matrix at the chosen threshold is written out with all four cells labelled in domain terms, not as TP/FP/TN/FN"
+questions:
+  - prompt: "Your useless classifier scored 99.556% accuracy. Explain exactly why accuracy is capable of this, and name the property of a dataset that makes accuracy untrustworthy."
+    answer_key: >-
+      Accuracy is the fraction of predictions that are correct, and it weights
+      every row equally. When 99.556% of rows are one class, a model that always
+      guesses that class is right 99.556% of the time by arithmetic alone — it has
+      not learned anything, it has learned the prior. The property that makes
+      accuracy untrustworthy is class imbalance, and the rule of thumb is that
+      accuracy is uninformative whenever the majority class share is close to the
+      accuracy you would consider good. Here anything below 99.556% is worse than
+      doing nothing, so the entire interesting range of models is compressed into
+      the last half a percent, which is not a scale anyone can reason about. The
+      deeper problem is that accuracy assumes a false positive and a false
+      negative cost the same, which is almost never true and is wildly untrue in
+      fraud, medical screening, or anything where one class is rare because it is
+      the bad thing you are trying to catch.
+  - prompt: "ROC AUC gave the useless classifier 0.5 and PR AUC gave it 0.00444. Explain why those baselines differ, and say when you would prefer each of the two curves."
+    answer_key: >-
+      ROC plots true positive rate against false positive rate, and both are
+      normalised within their own class — the false positive rate divides by the
+      number of negatives, so having a great many negatives does not by itself
+      move the curve. A random ranking therefore traces the diagonal and scores
+      0.5 regardless of the balance. Precision-recall plots precision against
+      recall, and precision depends on the ratio of positives to negatives among
+      the predicted positives, so a random ranking scores the base rate — 0.00444
+      here. Which to prefer depends on whether you care about the negatives. ROC
+      AUC answers "if I take a random positive and a random negative, how often
+      does the model rank the positive higher", which is a clean summary of
+      ranking quality and is comparable across datasets with different balances.
+      PR AUC answers "when this model flags something, how often is it right,
+      across all operating points", which is what you care about when the
+      negatives are overwhelming and the cost of a false alarm is a human being
+      reviewing it. For rare-event detection PR AUC is nearly always the more
+      honest number, precisely because ROC AUC can look excellent while the
+      precision at any usable threshold is dreadful.
+  - prompt: "Your model catches 92% of fraud but its accuracy is only 0.004 above the do-nothing baseline. Write the two sentences you would say to a manager who asks whether the model is working."
+    answer_key: >-
+      Something like: "The model catches 92% of fraudulent transactions while
+      flagging fewer than one in a thousand legitimate ones. Accuracy is not a
+      useful number on this problem — a model that approved every transaction
+      would score 99.56%, so the 0.4 percentage point difference represents
+      almost all of the value rather than almost none of it." The important move
+      is refusing the frame of the question rather than answering it. Accuracy has
+      been asked for, and answering in accuracy would either mislead upward — it
+      sounds like 99.96% is nearly perfect — or mislead downward, since the
+      improvement over baseline sounds trivial. Replacing it with two numbers the
+      business already understands, frauds caught and legitimate customers
+      inconvenienced, is both more honest and more useful, and it sets up the
+      threshold conversation, which is the one actually worth having.
+  - prompt: "You chose a threshold from a cost assumption rather than using 0.5. State your assumption, and explain why 0.5 is not a neutral default."
+    answer_key: >-
+      Any explicit assumption is acceptable as long as it is stated — for example,
+      a missed fraud costs the average fraudulent amount, an unnecessary review
+      costs a fixed amount of analyst time, and a wrongly declined transaction
+      costs some multiple of that in customer goodwill. Given costs, the optimal
+      threshold is where the expected cost of flagging equals the expected cost of
+      not flagging, which depends on both the costs and the predicted probability,
+      and it is almost never 0.5. The reason 0.5 is not neutral is that it
+      encodes a specific and usually wrong belief: that a false positive and a
+      false negative are equally bad, and that the model's probabilities are
+      calibrated. In an imbalanced problem, using 0.5 typically means almost never
+      predicting the positive class, because well-calibrated probabilities for a
+      0.444% event rarely exceed 0.5 at all. Choosing 0.5 by default is therefore
+      a decision — usually an unexamined one — rather than an abstention from
+      deciding.
+reflection_prompt: "Think of a model or dashboard you have seen reported with a single number. What was the class balance, and would you now ask a different question about it?"
+struggle_signals:
+  - "learner reports accuracy on an imbalanced problem"
+  - "learner assumes the PR-AUC baseline is 0.5"
+  - "learner uses the default 0.5 threshold without justifying it"
+  - "learner optimises a metric without asking what decision it drives"
+---
+
+## Why this node exists
+
+A metric is a claim about what it costs to be wrong. Choosing one without
+thinking about that cost means accepting somebody's default, usually the library
+author's, and library authors do not know your problem.
+
+Appendix B of the build plan sets the task precisely: identify the metric under
+which a majority-class-always classifier appears to win. This node is built so
+you find that metric yourself, on a dataset where the imbalance is realistic.
+
+## The session
+
+[`fraud-transactions.csv`](/datasets/fraud-transactions.csv) — 50,000 card
+transactions, 222 of them fraudulent. A rate of 0.444%, which is on the high side
+for real card fraud.
+
+### 1. The useless classifier, measured six ways
+
+Before any modelling:
+
+```python
+predictions = np.zeros(len(y))   # "not fraud", every time
+```
+
+| Metric | Score | Verdict |
+|---|---|---|
+| Accuracy | **0.99556** | looks excellent |
+| Precision | undefined (no positives predicted) | |
+| Recall | 0.0 | exposes it |
+| F1 | 0.0 | exposes it |
+| ROC AUC | 0.5 | exposes it |
+| PR AUC | 0.00444 | exposes it |
+
+One metric out of six is fooled. Unfortunately it is the one people report.
+
+Note the PR AUC: **0.00444, not 0.5.** The precision-recall baseline is the base
+rate, because a random ranking gives you precision equal to the positive rate at
+every recall. Getting this wrong makes people think a PR AUC of 0.3 is bad when
+on this dataset it would be a factor of 68 improvement.
+
+### 2. A model that actually tries
+
+```python
+from sklearn.ensemble import HistGradientBoostingClassifier
+```
+
+| | |
+|---|---|
+| ROC AUC (5-fold CV) | 0.9712 |
+| PR AUC (5-fold CV) | 0.9275 |
+| Accuracy at threshold 0.5 | 0.99962 |
+| Recall at threshold 0.5 | 0.9234 |
+
+The accuracy moved from 0.99556 to 0.99962. Four thousandths. That four
+thousandths is 92% of all the fraud in the dataset.
+
+### 3. Top-K review, which is what actually gets deployed
+
+Nobody runs a fraud model at a threshold. They run a review queue with a fixed
+number of analysts.
+
+| Transactions reviewed | Frauds caught | Share of all fraud | Precision |
+|---|---|---|---|
+| 50 | 50 | 22.5% | 1.000 |
+| 100 | 100 | 45.0% | 1.000 |
+| 200 | 200 | 90.1% | 1.000 |
+| 500 | 206 | 92.8% | 0.412 |
+
+This table is more useful to a business than any single metric, because it is
+denominated in a resource they actually allocate. Build it.
+
+### 4. Choose a threshold from a cost
+
+Write down three numbers — and they are assumptions, not facts, which is exactly
+why they must be written down:
+
+- cost of a missed fraud
+- cost of reviewing a legitimate transaction
+- cost of wrongly declining a good customer
+
+Then sweep the threshold, compute expected cost at each, and pick the minimum.
+It will not be 0.5.
+
+### 5. Write out the confusion matrix in words
+
+Not TP/FP/TN/FN. In domain terms:
+
+> Of 50,000 transactions, we flagged 412. Of those, 206 were genuinely
+> fraudulent and 206 were legitimate customers who will get a phone call. We
+> missed 16 frauds worth roughly X.
+
+If you cannot write that sentence, you do not yet know what your model does.
+
+## Picking a metric, briefly
+
+| Situation | Reach for |
+|---|---|
+| Balanced classes, symmetric costs | accuracy |
+| Ranking quality, balance-independent | ROC AUC |
+| Rare positives, false alarms cost human time | PR AUC / average precision |
+| Fixed review capacity | precision@k, recall@k |
+| Probabilities feed a decision or a price | log loss, Brier score, calibration curve |
+| Regression with outliers | MAE, or quantile loss |
+| Regression where big errors are disproportionately bad | RMSE |
+
+And the question underneath all of them: **what happens to a person when this is
+wrong, in each direction?**
+
+## Common walls
+
+**Your precision is 0 rather than undefined and you did not notice.** sklearn's
+`zero_division` parameter decides what to return when there are no positive
+predictions. The default warns; setting it to 0 silences a genuinely important
+signal. Read the warning.
+
+**Your ROC AUC is high and your PR AUC is low, and you think one is wrong.**
+Both are right. That combination is the signature of severe imbalance and it is
+telling you that the model ranks well overall but that the top of the ranking is
+still mostly negatives. Which one you should care about depends on whether
+somebody has to look at the flagged rows.
+
+**Your cross-validated fraud counts vary a lot between folds.** With 222
+positives, a fold has about 44. Use `StratifiedKFold` so each fold has a
+representative share, and be aware that any metric computed on 44 positives has
+wide error bars.
+
+**You optimised the threshold on the same data you evaluated on.** That is node
+2.3's lesson in a new place. Choose the threshold on a validation split, then
+report on a test split you have not touched.
+
+## Before you move on
+
+Node 2.5 introduces trees, and the temptation with a new model family is to
+compare it to the last one on a single number. You now know that the single
+number has to be chosen before the comparison is meaningful.

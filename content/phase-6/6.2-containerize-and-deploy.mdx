@@ -1,0 +1,236 @@
+---
+id: "6.2"
+phase: 6
+order_index: 2
+title: "Containerize and deploy"
+slug: "containerize-and-deploy"
+prereqs: ["6.1"]
+status: "published"
+goal: "Your model runs somewhere that is not your laptop, from an image you can rebuild byte-for-byte."
+resources:
+  primary:
+    name: "Docker — Get started guide"
+    url: "https://docs.docker.com/get-started/"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "Docker — Python language-specific guide"
+    url: "https://docs.docker.com/guides/python/"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Containerize node 6.1's service, then shrink the image by at least half with a multi-stage build. Deploy it somewhere with a public URL, call it from a machine that has never seen your code, and prove the container has no secrets baked into it."
+  difficulty: "medium"
+checklist:
+  - "My container builds from a clean checkout with one command and no manual steps"
+  - "I recorded the image size before and after optimization, and the optimized one is at least 50% smaller"
+  - "My final image does not contain build tools — I checked with `docker run --rm IMAGE which gcc` and it is not found"
+  - "Editing only my application code rebuilds in under 10 seconds because dependency layers are cached above it"
+  - "The container runs as a non-root user, verified with `docker run --rm IMAGE whoami`"
+  - "`docker history IMAGE` and `docker inspect IMAGE` contain no secrets, and no secret appears in any layer"
+  - "My service is deployed with a public URL and I called it successfully from a different machine or a phone"
+  - "The same image runs locally and in the deployment with no code differences — only environment variables differ"
+  - "My image is tagged with a version, not just `latest`, and the running deployment reports that version through its API"
+  - "I have a documented rollback: one command that returns the deployment to the previous image tag"
+questions:
+  - prompt: "Node 0.4 gave you a virtual environment and a pinned requirements file. Explain precisely what a container adds that those two cannot."
+    answer_key: >-
+      A virtual environment pins Python packages. A container pins everything
+      below them: the Python interpreter version itself, the system libraries that
+      wheels link against such as glibc, OpenMP or BLAS, the operating system
+      distribution, the presence and version of command-line tools, locale and
+      timezone settings, and the filesystem layout. That matters because a
+      surprising share of machine learning bugs live in that layer — a numpy wheel
+      built against a different BLAS gives slightly different floating-point
+      results, a missing shared library makes an import fail at runtime rather
+      than install time, and a different glibc can make a binary refuse to run at
+      all. A container also makes the artifact itself portable and immutable: the
+      image is a single thing you can tag, sign, store, ship and roll back, and
+      "the thing that ran in production" is a hash rather than a description. What
+      it still does not pin is hardware, GPU drivers and the CUDA version on the
+      host, which is why GPU images are matched to driver versions and why that
+      remains a real source of pain.
+  - prompt: "Explain Docker's layer caching in terms of your own Dockerfile, and say what ordering mistake costs the most time."
+    answer_key: >-
+      Each instruction produces a layer, and Docker reuses a cached layer when
+      that instruction and everything above it are unchanged. The moment one layer
+      is invalidated, every layer below it rebuilds. The expensive step in a
+      Python image is installing dependencies, which can take minutes, and the
+      step that changes most often is your own source code, which changes every
+      commit. So the ordering mistake that costs the most is copying the whole
+      source tree before installing dependencies — that puts the fast-changing
+      thing above the slow one, and every one-character edit triggers a full
+      reinstall. The fix is to copy only the requirements file, install, and then
+      copy the source: dependencies are then cached until the requirements
+      actually change. The same principle applies further down, which is why
+      system package installation goes at the top and why a `.dockerignore` is
+      worth writing — copying a stray virtual environment or a dataset into the
+      build context invalidates layers and inflates the image for no reason.
+  - prompt: "Your final image contains no compiler. Explain how a multi-stage build achieves that, and name a second reason beyond size to want it."
+    answer_key: >-
+      A multi-stage build uses one image to build and a different, smaller one to
+      run. The build stage has compilers, headers and build tools, and produces
+      artifacts — compiled wheels, or an installed virtual environment. The final
+      stage starts from a minimal base and copies only those artifacts across, so
+      everything needed to produce them is discarded and never appears in any
+      layer of the final image. Size is the obvious win, often several hundred
+      megabytes, which matters for pull time on every deploy and every autoscale
+      event. The second reason is security: a compiler, a package manager and a
+      shell in a production container are tools available to anyone who achieves
+      code execution inside it, so removing them meaningfully reduces what an
+      attacker can do after an initial foothold. It also shrinks the
+      vulnerability surface that scanners report, since most reported CVEs in a
+      typical image are in packages the application never uses — build tooling
+      dominates that list.
+  - prompt: "You verified there are no secrets in any layer. Explain why deleting a secret in a later instruction does not remove it, and describe how secrets should reach the container."
+    answer_key: >-
+      Layers are additive and immutable. If one instruction copies a file
+      containing a key and a later instruction deletes it, the deletion is itself
+      a layer that records the absence — the earlier layer still contains the
+      file, and anyone who pulls the image can extract it with `docker save` or by
+      inspecting the layer directly. The same is true of a secret passed as a
+      build argument, which is visible in `docker history`. This is precisely the
+      structure of the git problem from node 0.4, and it has the same conclusion:
+      a secret that was ever in an image is leaked, and the response is to rotate
+      it rather than to rebuild. Secrets should reach the container at runtime, as
+      environment variables injected by the orchestrator, as files mounted from a
+      secret store, or by the container fetching them itself from a vault using an
+      identity the platform grants it. If a secret is genuinely needed during the
+      build, Docker's BuildKit secret mounts make it available to one instruction
+      without persisting it into any layer.
+reflection_prompt: "What was different between your laptop and the container that you did not anticipate? That difference is the reason this node exists."
+struggle_signals:
+  - "learner copies source before installing dependencies"
+  - "learner bakes credentials into the image"
+  - "learner runs as root"
+  - "learner deploys `latest` and cannot say what is running"
+  - "learner has no rollback path"
+---
+
+## Why this node exists
+
+Node 0.4 got you as far as a reproducible Python environment. This node closes
+the gap underneath it — the interpreter, the system libraries, the OS — and turns
+the result into a single immutable artifact you can ship, version and roll back.
+
+It is also the first time your work runs somewhere someone else can reach, which
+changes what "done" means.
+
+## The session
+
+### 1. A Dockerfile that caches properly
+
+```dockerfile
+FROM python:3.12-slim AS builder
+WORKDIR /app
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY requirements.txt .              # dependencies FIRST
+RUN pip install --no-cache-dir -r requirements.txt
+
+FROM python:3.12-slim
+RUN useradd --create-home --uid 1000 app
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+COPY --chown=app:app . .             # source LAST
+USER app
+
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+Two things are load-bearing:
+
+- `requirements.txt` is copied before the source, so editing your code does not
+  reinstall dependencies. Question 2 is about this.
+- The build stage is discarded, so pip's build tooling never reaches the final
+  image.
+
+Write a `.dockerignore` too — `.venv`, `.git`, `__pycache__`, datasets. Otherwise
+they land in the build context and invalidate your cache.
+
+### 2. Measure the improvement
+
+```bash
+docker images | grep fraud
+```
+
+Build a naive single-stage version first, then the multi-stage one. Record both
+sizes. At least 50% smaller.
+
+Verify the build tools are gone:
+
+```bash
+docker run --rm fraud:1.0 which gcc      # should find nothing
+docker run --rm fraud:1.0 whoami         # should print "app"
+```
+
+### 3. Verify the cache works
+
+Edit one line of Python. Rebuild. Under 10 seconds.
+
+If it reinstalls dependencies, your ordering is wrong.
+
+### 4. Check for secrets
+
+```bash
+docker history --no-trunc fraud:1.0
+docker inspect fraud:1.0
+```
+
+Nothing sensitive in either. Question 4 explains why deleting a secret in a later
+layer does not help — it is the same structure as the git history problem in node
+0.4.
+
+### 5. Deploy it
+
+Anywhere with a public URL: Fly.io, Railway, Render, Cloud Run, a VM. The
+platform is not the point.
+
+Then call it **from a different machine** — a phone on mobile data is a good
+test, because it rules out anything local.
+
+### 6. Tag, and be able to go back
+
+```bash
+docker build -t fraud:1.0.0 .
+```
+
+Not `latest`. `latest` is not a version, it is a wish, and a deployment running
+`latest` cannot answer "what is running right now".
+
+Your service already reports its version through the API from node 6.1. Confirm
+the deployed one matches the tag.
+
+Then write the rollback command in your README and run it once, so you know it
+works before you need it at 3am.
+
+## Common walls
+
+**The image is 1.5 GB.** Base image too large, or you installed a
+CUDA-enabled torch you do not need. `python:3.12-slim` over `python:3.12`,
+CPU-only wheels, and a multi-stage build together account for most of it.
+
+**It works locally and 404s when deployed.** You bound to `127.0.0.1` instead of
+`0.0.0.0`. Inside a container, localhost is the container.
+
+**Permission denied after adding `USER app`.** Files copied before the `USER`
+instruction are owned by root. Use `COPY --chown`.
+
+**The model file is not in the image.** It is probably in `.dockerignore`, or it
+is only on your laptop. Decide deliberately whether the model is baked into the
+image — reproducible, larger, requires a rebuild to update — or fetched at
+startup from object storage. Both are defensible; node 6.3 makes the second one
+easier.
+
+**Builds are slow in CI and fast locally.** CI has no layer cache by default.
+Use a registry cache or BuildKit's cache export.
+
+## Before you move on
+
+Node 6.3 is about knowing which model is in that image and being able to
+reproduce the run that produced it. You have made the artifact immutable; next
+you make its provenance recoverable.

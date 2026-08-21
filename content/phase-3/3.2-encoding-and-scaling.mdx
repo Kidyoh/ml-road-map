@@ -1,0 +1,235 @@
+---
+id: "3.2"
+phase: 3
+order_index: 2
+title: "Encoding and scaling"
+slug: "encoding-and-scaling"
+prereqs: ["3.1"]
+status: "published"
+goal: "You can encode categoricals and scale numerics inside a pipeline, so that nothing is ever fitted on data it should not see — and you can say which encoder to reach for from the cardinality alone."
+resources:
+  primary:
+    name: "scikit-learn User Guide — Preprocessing data, sections 6.3.1 to 6.3.4"
+    url: "https://scikit-learn.org/stable/modules/preprocessing.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "scikit-learn User Guide — Pipelines and composite estimators"
+    url: "https://scikit-learn.org/stable/modules/compose.html"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Encode the same categorical column five ways and measure each. Then take a pipeline with the scaler fitted outside it, move the scaler inside, and measure the difference on a small dataset where it actually shows up — because on a large one it will not, and that is the trap."
+  dataset: "/datasets/fraud-transactions.csv"
+  difficulty: "medium"
+checklist:
+  - "One-hot encoding country and category on fraud-transactions.csv gives me exactly 8 country columns and 6 category columns before any drop_first"
+  - "With drop='first' I get 7 and 5, and I can say why dropping one matters for linear models and not for trees"
+  - "I encoded a synthetic 1,500-level column five ways — one-hot, ordinal, target, frequency, and dropping it — and recorded the CV score for each"
+  - "One-hot on the 1,500-level column produced a matrix with over 1,500 columns, and I recorded the fit time against the other encodings"
+  - "Target encoding fitted OUTSIDE cross-validation scored higher than target encoding fitted INSIDE a pipeline, and the gap is at least 0.05 AUC"
+  - "I can state which of those two numbers is the honest one, and it is the lower one"
+  - "I scaled with StandardScaler, MinMaxScaler and RobustScaler on a column with outliers, and RobustScaler's output has the smallest interquartile range distortion"
+  - "My final pipeline is a single ColumnTransformer inside a Pipeline, and `cross_val_score` on it does the encoding and scaling separately for every fold"
+  - "I confirmed there is no call to fit or fit_transform anywhere outside the pipeline in my final notebook"
+questions:
+  - prompt: "Explain what `drop='first'` does in one-hot encoding, why it matters for a linear model, and why it does not matter for a tree."
+    answer_key: >-
+      With k levels, one-hot produces k columns that always sum to one. If the
+      model also has an intercept, that intercept is a column of ones, so the
+      one-hot columns are exactly collinear with it — any constant can be shifted
+      between the intercept and all the dummies without changing a single
+      prediction. The design matrix is singular, the coefficients are not
+      identified, and the fit either fails or returns arbitrary values that
+      regularisation has picked among. Dropping one level fixes this by making it
+      the reference category, so every remaining coefficient reads as a
+      difference from that baseline. Trees do not care because they never invert
+      anything: a tree asks whether a column is above a threshold, and a redundant
+      column simply never gets chosen or gets chosen equivalently. Dropping a
+      level for a tree is mildly harmful if anything, since it removes a split the
+      tree might have wanted, and with regularised linear models the argument is
+      weaker too because the penalty resolves the tie. The habit worth keeping is
+      to know why you are dropping rather than always dropping.
+  - prompt: "Target encoding fitted outside cross-validation scored much higher than the same encoding fitted inside a pipeline. State which number you would report and why, and connect this to node 2.3."
+    answer_key: >-
+      The lower one, computed with the encoder inside the pipeline, is the only
+      honest estimate. Fitting the encoder on the full dataset lets each row's own
+      label contribute to its own encoded feature value, so the feature is a
+      partially-decoded copy of the target, and cross-validation cannot detect
+      this because every fold is contaminated identically — the validation rows'
+      labels are already baked into the feature values before the split happens.
+      This is exactly leak one from node 2.3, where target-encoding a 1,500-level
+      promo code scored 0.795 AUC on its own when fitted on all the data and 0.490
+      when fitted honestly inside the folds. The magnitude of the gap depends on
+      the cardinality: with a handful of levels each group is large, a single row
+      contributes almost nothing to its own group's mean, and the leak is small.
+      With groups of a handful of rows the leak dominates. Since the group sizes
+      are the very thing that makes target encoding attractive for
+      high-cardinality columns, the encoders that are most tempting are the ones
+      most dangerous to fit outside the pipeline.
+  - prompt: "Given only the cardinality of a categorical column, describe which encoding you would reach for and what would change your mind."
+    answer_key: >-
+      Low cardinality, under about fifteen levels: one-hot, and stop thinking
+      about it. Medium, roughly fifteen to a hundred: one-hot is still usually
+      fine for trees, and for linear models it starts costing you, so consider
+      grouping rare levels into an "other" bucket first. High, hundreds to
+      thousands: one-hot becomes a sparse matrix wider than it is tall and a
+      linear model overfits it badly, so reach for target encoding with proper
+      cross-fitting inside the pipeline, or frequency encoding, or an embedding if
+      you are already in a neural network. Very high, where most levels appear
+      once or twice, such as user ids or free-text categories: the column is
+      probably not usable as a category at all, and the right move is to extract
+      something from it — the level's frequency, its age, an aggregate of the
+      behaviour associated with it — rather than to encode identity. What would
+      change my mind: whether the levels have a natural order, in which case
+      ordinal encoding is correct and one-hot throws away information; whether
+      unseen levels will appear at serving time, which every encoder must handle
+      explicitly; and whether the model is a tree, which tolerates
+      high-cardinality integer codes far better than a linear model does.
+  - prompt: "You compared StandardScaler, MinMaxScaler and RobustScaler on a column with outliers. Describe what each did to that column, and name a case where scaling at all would be wrong."
+    answer_key: >-
+      StandardScaler subtracts the mean and divides by the standard deviation, and
+      both statistics are dragged by outliers — so a few extreme values inflate
+      the denominator and compress the bulk of the data into a narrow band near
+      zero, which is precisely the range where the model needs resolution.
+      MinMaxScaler is worse in this respect: it maps the observed minimum and
+      maximum to zero and one, so a single extreme value determines the entire
+      scale and the ordinary data ends up crammed into a few percent of the range.
+      RobustScaler uses the median and the interquartile range, both of which
+      ignore the tails, so the middle of the distribution keeps its spread and the
+      outliers simply sit far out. Where scaling is wrong: for tree-based models
+      it is pointless, since splits are invariant to any monotonic transform, and
+      it costs interpretability for nothing. It is actively wrong on one-hot
+      columns, where it destroys the zero-means-absent semantics, and on features
+      whose zero is meaningful — a count of zero support tickets should not become
+      minus 0.7. And MinMax specifically is unsafe whenever serving data can fall
+      outside the training range, since the guarantee it appears to give is not a
+      guarantee at all.
+reflection_prompt: "Before this node, where were you fitting your scaler? Be honest — and if it was outside the pipeline, why did it never show up as a problem?"
+struggle_signals:
+  - "learner calls fit_transform on the full dataset then splits"
+  - "learner one-hot encodes a high-cardinality column and runs out of memory"
+  - "learner scales one-hot columns"
+  - "learner cannot explain why the honest score is lower"
+---
+
+## Why this node exists
+
+Node 2.3 planted three leaks. Two of them — the target encoder and the scaler —
+were preprocessing steps fitted on data they should not have seen. This node is
+where you learn to make that structurally impossible rather than remembering not
+to do it.
+
+It also settles the encoding question, which comes up on every tabular problem
+and which people generally answer by habit rather than by cardinality.
+
+## The session
+
+### 1. One-hot, and the reference level
+
+On [`fraud-transactions.csv`](/datasets/fraud-transactions.csv):
+
+```python
+pd.get_dummies(df[["country", "category"]])                    # 8 + 6 = 14 columns
+pd.get_dummies(df[["country", "category"]], drop_first=True)   # 7 + 5 = 12 columns
+```
+
+Fit a logistic regression both ways, then a tree both ways. The linear model
+cares; the tree does not. Question 1 asks why.
+
+### 2. Five encodings of a nasty column
+
+Build a synthetic 1,500-level column — or reuse `promo_code` from node 2.3's
+`leaky-churn.csv`, which is exactly this. Encode it five ways and record CV score
+*and* fit time:
+
+| Encoding | Columns produced | Notes |
+|---|---|---|
+| One-hot | 1,500 | wider than many datasets are tall |
+| Ordinal | 1 | invents an order that does not exist |
+| Target (in pipeline) | 1 | honest |
+| Target (fitted outside) | 1 | **dishonest** |
+| Drop the column | 0 | often the right answer |
+
+The gap between the two target-encoding rows is the whole lesson. On node 2.3's
+data it was 0.795 against 0.490 — the honest version scored *worse than chance*,
+because the codes were assigned at random and carry no signal at all.
+
+### 3. The scaler, inside and outside
+
+```python
+# outside - what almost everyone writes first
+X_scaled = StandardScaler().fit_transform(X)
+cross_val_score(model, X_scaled, y, cv=5)
+
+# inside - what is correct
+pipe = Pipeline([("scale", StandardScaler()), ("model", model)])
+cross_val_score(pipe, X, y, cv=5)
+```
+
+On a large dataset these give nearly the same answer, which is exactly why the
+habit survives. Try it on a small subsample — 200 rows — and watch a gap appear.
+
+The size of the error is not the point. The point is that the first version's
+number is not an estimate of anything.
+
+### 4. Three scalers on a fat tail
+
+Take the `amount` column, which is log-normal with a long right tail, and apply
+StandardScaler, MinMaxScaler and RobustScaler. Plot all three.
+
+Then ask which one leaves the middle 50% of the data with usable resolution.
+
+### 5. Assemble the real thing
+
+```python
+pre = ColumnTransformer([
+    ("num", StandardScaler(), numeric_cols),
+    ("cat", OneHotEncoder(handle_unknown="ignore", drop="first"), low_card_cols),
+    ("hi",  TargetEncoder(target_type="binary"), high_card_cols),
+])
+pipe = Pipeline([("pre", pre), ("model", HistGradientBoostingClassifier())])
+```
+
+Everything that learns from data is inside. `cross_val_score(pipe, X, y)` now
+refits every transformer on every fold, which is the only arrangement that
+produces a number worth reporting.
+
+Then grep your notebook for `fit_transform` and confirm there are none left
+outside the pipeline. That is the last checklist item and it is the one worth
+keeping forever.
+
+## `handle_unknown`, which will bite you in production
+
+A category appears at serving time that was not in training. By default
+`OneHotEncoder` raises. In a batch job that is a failed run; in an online service
+it is a 500 on a real request.
+
+Decide deliberately: `handle_unknown="ignore"` encodes it as all zeros, target
+encoders substitute the global mean. Both are defensible. Silently crashing at
+3am is not.
+
+## Common walls
+
+**Your one-hot matrix will not fit in memory.** That is the cardinality telling
+you one-hot is the wrong choice. Use `sparse_output=True` if you must, but
+reconsider first.
+
+**TargetEncoder gives different results each run.** It cross-fits internally,
+which involves a shuffle. Set `random_state` and note that this internal
+cross-fitting is the thing that makes it safe.
+
+**Your ColumnTransformer drops columns silently.** Anything not named in a
+transformer is dropped unless you set `remainder="passthrough"`. Check the output
+width against what you expected — this one is quiet and costly.
+
+**Scaling made your tree model worse.** It should have made no difference at all.
+If it changed anything, you have also changed something else, or your model has
+a regularisation term that is scale-sensitive.
+
+## Before you move on
+
+Node 3.3 leaves supervised learning for a while. Everything you have just built
+about pipelines carries over — clustering is fitted on data too, and fitting it
+on the wrong data is the same mistake in a place where there is no label to catch
+it.

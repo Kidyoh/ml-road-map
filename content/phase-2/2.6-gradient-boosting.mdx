@@ -1,0 +1,235 @@
+---
+id: "2.6"
+phase: 2
+order_index: 6
+title: "Gradient boosting"
+slug: "gradient-boosting"
+prereqs: ["2.5"]
+status: "published"
+goal: "You can train a gradient boosting model that beats your linear baseline, and say what it cost you in interpretability, tuning time and the ability to overfit quietly."
+resources:
+  primary:
+    name: "XGBoost — Introduction to Boosted Trees"
+    url: "https://xgboost.readthedocs.io/en/stable/tutorials/model.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "LightGBM documentation — Features and Parameters Tuning"
+    url: "https://lightgbm.readthedocs.io/en/stable/"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "On the fraud data from node 2.4, boosting finally beats logistic regression by a wide margin. Then set the learning rate to 1.0 and watch the same model become worse than random, and plot the train-test gap that shows you exactly when to stop adding trees."
+  dataset: "/datasets/fraud-transactions.csv"
+  difficulty: "medium"
+checklist:
+  - "On fraud-transactions.csv with 5-fold stratified CV, logistic regression scores about 0.804 PR AUC and gradient boosting about 0.928 — boosting wins by more than 0.12"
+  - "Random forest also scores about 0.933 PR AUC here, so boosting's advantage over bagging on this dataset is small or nil, and I checked rather than assumed"
+  - "At learning_rate = 1.0 with 500 iterations my model collapses to about 0.51 ROC AUC and 0.007 PR AUC — worse than useless, and I have the number"
+  - "At learning_rate = 0.01 with 1000 iterations I get about 0.928 PR AUC, essentially matching the default — slower is not better here, just slower"
+  - "My train/test curve shows training PR AUC reaching 1.0000 by 50 iterations while test PR AUC peaks near 0.901 around 100 iterations and then declines"
+  - "Adding trees past that peak made the test score WORSE, not flat — I ran 300 and 1000 iterations and recorded both"
+  - "I enabled early stopping with a validation fraction and it selected a number of iterations within 2x of where my manual curve peaked"
+  - "I can state what each of learning_rate, max_iter, max_depth and min_samples_leaf does, and which two trade off against each other"
+  - "My boosting model's feature ranking and my logistic regression's coefficient ranking disagree on at least one feature, and I looked into why"
+questions:
+  - prompt: "Explain the difference between what a random forest does and what gradient boosting does, in terms of what each new tree is trained on."
+    answer_key: >-
+      A random forest trains every tree independently on a bootstrap sample of the
+      data and averages the results. The trees never see each other; they are
+      parallel votes, and the ensemble reduces variance by averaging away their
+      individual instabilities. Gradient boosting trains trees sequentially, and
+      each new tree is fitted to the errors the ensemble has made so far — more
+      precisely, to the negative gradient of the loss with respect to the current
+      predictions, which for squared error is exactly the residual. So each tree
+      is a correction rather than a vote, and the ensemble is a sum rather than an
+      average. That difference explains most of their behaviour. Boosting reduces
+      bias, so it can fit intricate structure that no individual shallow tree
+      could, and it uses shallow trees precisely because each only needs to
+      capture what is left. It also means boosting can overfit by adding more
+      trees, whereas a forest essentially cannot — more trees in a forest just
+      makes the average more stable.
+  - prompt: "A learning rate of 1.0 destroyed the model. Explain why, and connect it to something you saw in node 1.5."
+    answer_key: >-
+      The learning rate scales how much of each new tree's correction is applied.
+      At 1.0 the full correction is taken every step, so the ensemble chases the
+      residuals of the most recent fit at full strength, overshoots, generates
+      large residuals in the other direction, overshoots those, and oscillates
+      into divergence — exactly the behaviour you saw fitting f(x) = x squared
+      with a learning rate above the stability bound in node 1.5. It is the same
+      phenomenon: an iterative optimiser taking steps too large for the curvature
+      of the loss it is descending. The difference is that gradient boosting
+      descends in function space rather than parameter space, adding a function at
+      each step instead of adjusting a weight, but the stability argument carries
+      over unchanged. This is why the standard advice is a small learning rate
+      with many trees: shrinkage makes each correction a partial one, so the
+      ensemble approaches the optimum from a direction it can control, at the cost
+      of needing more iterations.
+  - prompt: "Your training PR AUC hit 1.0000 at 50 iterations and your test score peaked around 100 and then declined. Explain why boosting can overfit by adding trees when a random forest cannot."
+    answer_key: >-
+      In a forest, each tree is an independent estimate of the same quantity, and
+      adding another one only refines the average — the expected prediction does
+      not move, its variance just shrinks, so more trees is monotonically
+      non-harmful. In boosting, each tree is fitted to what remains after all the
+      previous ones, so the ensemble's capacity grows without bound as trees are
+      added. Once the real structure has been captured, the residuals that remain
+      are noise, and every subsequent tree fits noise — which by definition does
+      not generalise, and actively displaces the correct prediction. That is why
+      the test curve turns over rather than flattening: the model is not merely
+      failing to improve, it is getting worse. The practical consequence is that
+      the number of iterations is a genuine hyperparameter that must be chosen on
+      held-out data, which is what early stopping automates, and why the observed
+      training score is useless for choosing it.
+  - prompt: "Boosting beat logistic regression by 0.12 PR AUC here and lost to it in node 2.5. What is different about these two datasets, and what would you check first on a new problem to guess which will win?"
+    answer_key: >-
+      The breast cancer data in node 2.5 is thirty continuous measurements where
+      the relationship is close to smooth and monotonic — bigger and more
+      irregular means malignant — which is the exact shape a linear model
+      represents natively and a tree has to approximate with staircases. The fraud
+      data is heterogeneous and interaction-driven: a categorical country, an hour
+      of day where the risky region wraps around midnight and is therefore not
+      monotonic, a count feature with a sharp threshold, and a signal that lives
+      in combinations rather than in any single column. Trees handle all of that
+      without being told, and a linear model cannot represent the hour effect at
+      all without engineering. What to check first on a new problem: are the
+      features mostly continuous and plausibly monotonic in their effect, or
+      mixed-type with thresholds and interactions; is the class balance extreme,
+      since trees handle that more gracefully; and how much data there is, since
+      boosting needs more. The cheapest answer of all is to fit both, which takes
+      minutes and beats any amount of reasoning about which should win.
+reflection_prompt: "You have now seen the linear model win once and lose once. What is your actual default going to be on the next tabular problem, and what would make you change it?"
+struggle_signals:
+  - "learner tunes hyperparameters without a held-out set"
+  - "learner adds trees until the training score stops improving"
+  - "learner assumes boosting always beats simpler models"
+  - "learner cannot say what the learning rate does"
+---
+
+## Why this node exists
+
+For tabular data, gradient boosting is usually the answer. It is what wins
+competitions, and it is what most production tabular models are, because it
+handles mixed types, missing values, non-monotonic effects and interactions
+without being asked.
+
+It also has two failure modes that the models before it did not: it can be
+destroyed by a single badly chosen hyperparameter, and it can overfit silently by
+running too long. Both are in this session.
+
+## The session
+
+[`fraud-transactions.csv`](/datasets/fraud-transactions.csv) again — 50,000 rows,
+222 frauds. Report PR AUC, for the reasons node 2.4 established.
+
+### 1. The comparison
+
+5-fold stratified CV, `random_state=0`:
+
+| Model | ROC AUC | PR AUC |
+|---|---|---|
+| Logistic regression, standardized | 0.9632 | 0.8039 |
+| Random forest, 300 trees | 0.9724 | **0.9328** |
+| HistGradientBoosting, defaults | 0.9712 | 0.9275 |
+
+Boosting beats the linear model by 0.12 PR AUC — an enormous margin, and the
+reverse of what happened in node 2.5.
+
+Note also that the forest is not behind. On this dataset bagging and boosting are
+level, and reporting "we used gradient boosting because it is the best" would be
+an unsupported claim. Question 4 asks what changed between the two datasets.
+
+### 2. Break it with one number
+
+```python
+HistGradientBoostingClassifier(learning_rate=1.0, max_iter=500, random_state=0)
+```
+
+| | ROC AUC | PR AUC |
+|---|---|---|
+| learning_rate = 0.1 (default) | 0.9712 | 0.9275 |
+| learning_rate = 0.01, 1000 iters | 0.9680 | 0.9281 |
+| **learning_rate = 1.0, 500 iters** | **0.5058** | **0.0066** |
+
+Worse than random. One parameter. Node 1.5 has already shown you why — question 2
+asks you to make the connection explicit.
+
+Notice too that `lr=0.01` with ten times the trees buys nothing over the default.
+Slower is not automatically better; it is just slower.
+
+### 3. Watch it overfit
+
+Single 70/30 split, `early_stopping=False`, sweep the iteration count:
+
+| Iterations | Train PR AUC | Test PR AUC |
+|---|---|---|
+| 10 | 0.9994 | 0.9006 |
+| 50 | **1.0000** | 0.9006 |
+| 100 | 1.0000 | **0.9010** |
+| 300 | 1.0000 | 0.8976 |
+| 1000 | 1.0000 | 0.8971 |
+
+The training score is pinned at 1.0000 from 50 iterations onward and carries no
+information after that. The test score peaks and then **declines** — adding trees
+made the model worse.
+
+Plot both curves on one axis. This picture is the node.
+
+### 4. Let it stop itself
+
+```python
+HistGradientBoostingClassifier(early_stopping=True, validation_fraction=0.15,
+                               n_iter_no_change=20, random_state=0)
+```
+
+Check where it stopped against where your manual curve peaked. Early stopping is
+not magic — it is exactly the curve above, computed on a slice it held back.
+
+## The parameters that matter
+
+| Parameter | What it does | Notes |
+|---|---|---|
+| `learning_rate` | how much of each tree's correction to apply | trades off against `max_iter` |
+| `max_iter` / `n_estimators` | how many trees | choose by early stopping, never by training score |
+| `max_depth` / `max_leaf_nodes` | complexity per tree | boosting wants shallow trees; 3 to 8 is typical |
+| `min_samples_leaf` | smallest leaf allowed | raise it on small or noisy data |
+| `l2_regularization` | penalty on leaf values | the underused one |
+| `subsample`, `colsample` | randomness per tree | borrows the forest's variance reduction |
+
+The first two are the pair that trade off: halve the learning rate, roughly
+double the trees. The checklist asks you to name that pair.
+
+## XGBoost, LightGBM, CatBoost, sklearn
+
+They implement the same idea with different engineering. `HistGradientBoosting`
+in sklearn is a LightGBM-style histogram implementation and is fast enough for
+most work with no extra dependency. LightGBM grows leaf-wise and is typically
+fastest; XGBoost is the most battle-tested; CatBoost handles high-cardinality
+categoricals best and is the one to reach for when node 2.3's target-encoding
+trap is looming.
+
+Use whichever. Do not switch libraries hoping for accuracy — the differences
+between them are far smaller than the difference a validated learning rate makes.
+
+## Common walls
+
+**Your PR AUC is much lower than the table.** Check that you one-hot encoded
+`country` and `category` rather than passing strings, or that you told the
+estimator which columns are categorical.
+
+**Your training score is not 1.0.** With 222 positives in 50,000 rows and
+unlimited iterations, it will be. If it is not, you have early stopping on —
+which is the correct setting, and the wrong one for watching the overfit.
+
+**Early stopping picks a very small number of iterations.** Its validation slice
+is small and contains few frauds. Raise `n_iter_no_change`, or use explicit
+cross-validation to choose the count.
+
+**Boosting is slower than you expected.** 1000 iterations on 50,000 rows takes a
+few seconds. If it takes minutes, you are on the non-histogram
+`GradientBoostingClassifier`, which is a much older and slower implementation.
+
+## Before you move on
+
+Node 2.7 stops asking which model is better and starts asking what the errors
+have in common. That is where the remaining improvement lives once you have a
+model in the right family.

@@ -1,0 +1,228 @@
+---
+id: "6.3"
+phase: 6
+order_index: 3
+title: "Experiment tracking and model registry"
+slug: "experiment-tracking"
+prereqs: ["2.7"]
+status: "published"
+goal: "You can reproduce any past result from its recorded run, without relying on memory."
+resources:
+  primary:
+    name: "MLflow — Tracking"
+    url: "https://mlflow.org/docs/latest/tracking.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "Weights & Biases — Quickstart and Experiment Tracking"
+    url: "https://docs.wandb.ai/quickstart"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Instrument the fraud experiments from node 2.6 so every run is recorded automatically. Then run twenty variations, and at the end pick any one of them at random and reproduce its number from the record alone — with your notebook closed."
+  difficulty: "medium"
+checklist:
+  - "I logged at least 20 runs, each with its parameters, metrics, git commit and data version"
+  - "Every run records the git commit hash, and at least one run is marked dirty because the working tree had uncommitted changes"
+  - "I picked a run at random, and reproduced its metric to within the noise using only what was recorded — notebook closed"
+  - "My tracking captures the exact library versions, and I can name the sklearn version used for run 7"
+  - "I logged the model artifact itself, not just the metrics, and I loaded one back from the store and got predictions from it"
+  - "I can sort all 20 runs by PR AUC in one query and see the parameters of the top 3 side by side"
+  - "I registered one model version in a registry with a stage or alias, and promoted it from staging to production"
+  - "My served container from node 6.2 loads the model from the registry by version, not from a file I copied by hand"
+  - "I recorded a hash or version identifier of the training data for each run, and two runs on different data are distinguishable"
+questions:
+  - prompt: "You reproduced a run with your notebook closed. List everything that had to be recorded for that to be possible, and say which one people most often omit."
+    answer_key: >-
+      The code version, as a git commit hash, plus whether the working tree was
+      clean — a commit alone is not enough if you had uncommitted edits. The
+      parameters, including the ones with defaults, since a default that changes
+      in a library upgrade silently changes your run. The data: not just a path
+      but a version or content hash, because the file at that path is not
+      guaranteed to be the same file. The environment, meaning library versions
+      and ideally the container image. Any random seeds. And the metrics
+      themselves, so you know what you are trying to match. The one most often
+      omitted is the data version. Code gets committed almost reflexively and
+      parameters are usually logged by whatever framework you are using, but the
+      training data is a path that points at something mutable — a table that gets
+      appended to, a file someone regenerated, an S3 prefix with new objects. A
+      run that cannot say which rows it trained on is not reproducible, and the
+      failure is silent: you rerun, get a different number, and conclude the code
+      changed.
+  - prompt: "One of your runs is marked dirty because the working tree had uncommitted changes. Explain why recording that matters more than recording the commit hash."
+    answer_key: >-
+      Because a commit hash on a dirty tree is a lie that looks like the truth. It
+      says "this run came from commit abc123", and abc123 is a real commit you can
+      check out, but the code that actually ran was that commit plus whatever was
+      unstaged — which may be the entire change you were testing. Checking out the
+      commit and rerunning gives a different result, and the discrepancy is
+      inexplicable without knowing the tree was dirty. Recording the dirty flag at
+      least makes the record honest: it says this run is not reproducible from the
+      commit alone, which is far more useful than a confident wrong answer. Better
+      still is to record the diff itself, which some trackers do and which makes
+      even a dirty run recoverable. The best-practice version is to refuse to run
+      at all on a dirty tree for anything that might matter, but that is often too
+      strict during exploration, so the honest flag is the workable compromise —
+      and it is exactly the sort of thing that costs one line and saves a day.
+  - prompt: "Explain the difference between experiment tracking and a model registry, and say what breaks if you have only one of them."
+    answer_key: >-
+      Tracking records the history of what you tried: every run, its parameters,
+      its metrics, its artifacts. It is append-only, mostly write-once, and its
+      purpose is comparison and reproducibility — it answers "what did we do and
+      what happened". A registry manages the lifecycle of the small number of
+      models that matter: which version is in production, which is in staging,
+      who approved the promotion, and how to fetch a specific version by name. It
+      answers "what is running and how do I get it". With only tracking, you have
+      a thousand runs and no authoritative answer to which model is deployed —
+      people copy artifact files around, and eventually the file in production
+      does not correspond to any run. With only a registry, you know what is
+      deployed but not why it was chosen, so you cannot tell whether the new
+      candidate is better than the incumbent, and you cannot reconstruct the
+      comparison that justified the last promotion. Node 6.4's automated
+      promotion gate needs both: tracking to produce the candidate's metrics, and
+      the registry to be the thing that does or does not accept it.
+  - prompt: "Your container now loads the model from a registry by version rather than from a copied file. Argue for that change, then argue against it, and say when you would do it the other way."
+    answer_key: >-
+      For: the deployed model is identified by a name and version that resolves
+      back to the run that produced it, so provenance is intact and there is no
+      manual copy step to get wrong. Updating the model does not require
+      rebuilding the image, which shortens the loop between retraining and
+      serving, and the same image can serve staging and production with different
+      versions. Against: the service now has a runtime dependency on the registry,
+      so a registry outage prevents new instances from starting — including during
+      an autoscale event or a node failure, which is exactly when you least want
+      it. It also breaks the immutability that node 6.2 worked for: the same image
+      tag can now behave differently depending on what the registry returns, which
+      makes an incident harder to reason about. I would bake the model into the
+      image when reproducibility and startup reliability dominate — regulated
+      environments, edge deployment, anything where "which model is in this
+      container" must be answerable from the container alone — and fetch from the
+      registry when models retrain often and image rebuilds are the bottleneck.
+      The common middle ground is to fetch at build time and pin the resulting
+      version in the image tag.
+reflection_prompt: "Think of a result you produced more than a month ago. Could you reproduce it today? What specifically is missing, and what would it have cost to record at the time?"
+struggle_signals:
+  - "learner tracks metrics but not the data version"
+  - "learner logs runs manually and inconsistently"
+  - "learner copies model files by hand into a deployment"
+  - "learner cannot say which model is in production"
+---
+
+## Why this node exists
+
+Node 0.4 made your code reproducible. This node makes your *results* reproducible,
+which is a different problem: a result depends on code, parameters, data,
+environment and randomness, and only the first of those is in git.
+
+The test is uncomfortable and simple. Pick a number you produced last month. Can
+you produce it again today? For most people the honest answer is no, and the
+reason is almost never the code.
+
+## The session
+
+### 1. Instrument node 2.6's experiments
+
+```python
+import mlflow
+
+with mlflow.start_run():
+    mlflow.log_params({"learning_rate": lr, "max_iter": n, "max_depth": d})
+    mlflow.log_metrics({"pr_auc": pr, "roc_auc": roc})
+    mlflow.log_param("git_commit", subprocess.getoutput("git rev-parse HEAD"))
+    mlflow.log_param("git_dirty", bool(subprocess.getoutput("git status --porcelain")))
+    mlflow.log_param("data_sha256", sha256_of(data_path))
+    mlflow.sklearn.log_model(model, "model")
+```
+
+`mlflow.autolog()` captures most of this automatically for common libraries and
+is worth turning on. The three lines it will *not* give you are the ones that
+matter most: the commit, the dirty flag, and the data hash.
+
+### 2. Twenty runs
+
+Sweep whatever node 2.6 left you curious about — learning rate, depth, iteration
+count, feature subsets.
+
+Deliberately run one of them with uncommitted changes so that the dirty flag
+fires. Question 2 asks why that flag matters more than the commit hash.
+
+### 3. The actual test
+
+Close your notebook. Pick a run at random from the UI. Reproduce its metric using
+only what was recorded.
+
+If you cannot, something was not logged, and finding out which thing is the
+entire value of this exercise.
+
+### 4. Query, do not scroll
+
+```python
+mlflow.search_runs(order_by=["metrics.pr_auc DESC"], max_results=3)
+```
+
+Twenty runs is where a spreadsheet stops working and a query starts. Two hundred
+is where scrolling stops working entirely.
+
+### 5. Register and promote
+
+```python
+mlflow.register_model(f"runs:/{run_id}/model", "fraud-detector")
+```
+
+Then move a version through stages — staging to production — using aliases. That
+transition is the thing node 6.4 will automate and gate.
+
+### 6. Serve from the registry
+
+Change node 6.2's container to load `models:/fraud-detector@production` instead
+of a file you copied.
+
+Then read question 4, which argues both sides of that change, because it is a
+genuine trade-off rather than an obvious improvement.
+
+## What to record, every time
+
+| | Why |
+|---|---|
+| Git commit **and dirty flag** | the code, honestly |
+| All parameters, including defaults | defaults change under you |
+| **Data version or hash** | the most-omitted one |
+| Library versions | a serialised model may not load elsewhere |
+| Random seeds | otherwise reproduction is approximate |
+| Metrics | what you are trying to match |
+| The artifact | so you do not have to retrain to use it |
+
+## Tracking against registry
+
+| | Experiment tracking | Model registry |
+|---|---|---|
+| Answers | what did we try, what happened | what is deployed, how do I get it |
+| Volume | thousands of runs | a handful of versions |
+| Lifecycle | append-only history | staged promotion |
+| Needed for | comparison, reproducibility | deployment, rollback |
+
+You need both, and question 3 asks what breaks when you have only one.
+
+## Common walls
+
+**Your tracking server is a local directory and you lose it.** Fine for
+learning; use a real backend the moment more than one person or machine is
+involved.
+
+**Hashing the data is slow.** For a large file, hash the metadata — path, size,
+modification time — or the version identifier your storage layer provides. The
+goal is distinguishability, not cryptographic proof.
+
+**Autolog captures too much.** It is noisy on purpose. Filter when reading rather
+than logging less; the run you wish you had logged more of is always the one from
+three weeks ago.
+
+**Your loaded model gives different predictions.** Library version mismatch. This
+is exactly why the versions are logged, and exactly why node 6.2's container is
+the more robust answer.
+
+## Before you move on
+
+Node 6.4 turns the promotion step into a pipeline that refuses to promote a model
+that fails its gate — and Appendix B requires you to prove that refusal by
+deliberately feeding it a worse model.

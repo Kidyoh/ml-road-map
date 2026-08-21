@@ -1,0 +1,221 @@
+---
+id: "0.5"
+phase: 0
+order_index: 5
+title: "Plotting to see, not to decorate"
+slug: "plotting-to-see"
+prereqs: ["0.3"]
+status: "published"
+goal: "You use a plot to find something you did not already know, and you can name a defect in data that summary statistics cannot show you."
+resources:
+  primary:
+    name: "Fundamentals of Data Visualization — Claus Wilke, chapters 5 to 7"
+    url: "https://clauswilke.com/dataviz/"
+    type: "book"
+    cost: "free"
+  alt:
+    name: "matplotlib User Guide — Pyplot tutorial and Artist tutorial"
+    url: "https://matplotlib.org/stable/users/index.html"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Two datasets designed to lie to summary statistics. Four series with identical means, variances and fitted lines that look nothing alike; and twelve thousand sensor readings hiding a broken sensor that barely moves the average. Find both with plots, then plot the dataframe you cleaned in node 0.3 and find something in it you did not know."
+  dataset: "/datasets/anscombe.csv"
+  difficulty: "medium"
+checklist:
+  - "All four series in anscombe.csv have mean(x) = 9.00, var(x) = 11.00, mean(y) = 7.50 and a fitted line of y = 3.00 + 0.50x, to two decimal places — I computed all four, I did not take my word for it"
+  - "Their correlation coefficients all round to 0.816 (series IV gives 0.817)"
+  - "My 2x2 scatter plot of the four series shows four visibly different shapes, and I can describe each in one sentence"
+  - "sensor-readings.csv has 12,000 rows across 4 sensors, 3,000 each"
+  - "Exactly 532 readings are 0.000, and every single one of them belongs to sensor S-03"
+  - "The overall mean reading is 23.953 but only 271 of 12,000 readings fall between 23 and 27 — the mean describes a value almost nothing in the data takes"
+  - "My histogram of reading_c shows two clear modes, and I can state their approximate centres (near 18.5 and 31.5)"
+  - "S-03's mean is 20.55 against 25.087 for the other three combined — a gap I would have dismissed as noise without the histogram"
+  - "I plotted the cleaned 0.3 dataframe and found at least one thing I did not already know, and I wrote down what it was"
+  - "Every plot I kept has axis labels with units, and I deleted at least one plot that was decorative rather than informative"
+questions:
+  - prompt: "All four Anscombe series share a mean, a variance, a correlation and a regression line. Explain what those four numbers are actually measuring, such that four completely different shapes can produce the same values."
+    answer_key: >-
+      Each of those statistics collapses the data onto a single number by
+      averaging something, and averaging is exactly the operation that destroys
+      shape. The mean is the balance point and says nothing about how mass is
+      arranged around it. The variance is the average squared distance from that
+      point, so a tight cluster plus one far outlier can equal a broad even
+      spread. Correlation measures how much the two variables move together on
+      average, and a perfect curve can produce the same value as a noisy straight
+      line because the curve's departures cancel. The regression line is fitted by
+      minimising average squared error, which one leveraged point can dictate
+      entirely — series IV is a vertical stack plus a single distant point, and
+      that point alone determines the slope. The general lesson: every summary
+      statistic answers one specific question, and the questions you did not ask
+      are invisible in the answer. Plotting asks all of them at once.
+  - prompt: "The overall mean reading is 23.953, and 271 readings out of 12,000 fall anywhere near it. Explain what has gone wrong with using the mean here, and describe the situation where you would notice this without a plot."
+    answer_key: >-
+      The distribution is bimodal — a day mode near 18.5 and a night mode near
+      31.5 — so the mean sits in the trough between them, describing a state the
+      sensor is almost never in. It is a real number correctly computed and it
+      corresponds to nothing physical. The mean assumes the data has a single
+      centre, and when it does not, the mean names an empty region. You could
+      notice this without a plot, but only if you went looking: compare the mean
+      against the median (close here, so no help), or against the mode, or check
+      whether the standard deviation is large relative to the mean, or compute the
+      fraction of points within one standard deviation and find it far below the
+      68 percent a normal distribution would give. All of those are things you
+      have to think to check. The histogram makes it unmissable in one glance,
+      which is the entire argument for looking before summarising.
+  - prompt: "532 of sensor S-03's readings are exactly 0.000. Say why a hard zero is a much stronger signal than a merely low reading, and describe how you would handle those rows in a model — including the option you think is wrong."
+    answer_key: >-
+      A physical measurement almost never lands on exactly 0.000 twice, let alone
+      532 times. Continuous quantities are continuous; an exact repeated constant
+      is a machine writing a default, not a world being measured. So the value is
+      not a low temperature, it is a missing measurement wearing a number's
+      clothes, and the fact that it is numeric rather than null is what makes it
+      dangerous — every downstream mean, standard deviation and model input
+      absorbs it silently. Handling: convert them to NaN first, so that they are
+      at least honest, then decide. Dropping the rows is defensible if the
+      dropouts are unrelated to what you are predicting. Imputing with the
+      sensor's own median is defensible if they are random gaps. Adding an
+      explicit `was_missing` indicator column is usually the best of the three,
+      because the fact that a sensor failed is often itself informative. The wrong
+      option is leaving them as zeros, and the second-wrongest is imputing them
+      with the overall mean, which invents a value in the trough that the sensor
+      never reports.
+  - prompt: "Name a plot you made during this session that you deleted, and say what made it decorative rather than informative. Then say what question you would have to have been asking for that same plot to have been worth keeping."
+    answer_key: >-
+      Any specific answer is fine; what is being tested is whether you can tell
+      the difference. Common honest answers: a pie chart of category counts, which
+      makes comparing similar slices harder than a bar chart would; a plot with a
+      colour gradient encoding a variable already shown on an axis; a line chart
+      through categorical data, where the line implies a continuity that does not
+      exist; a 3D bar chart, where the perspective distorts the very quantities
+      being compared; or a scatter plot so overplotted that a hundred thousand
+      points render as a solid block. The second half is the important half: the
+      same chart becomes worth keeping the moment there is a question it answers
+      better than the alternatives. An overplotted scatter is useless for counting
+      and fine for showing the outline of a joint distribution. A pie chart is
+      genuinely good at "is this roughly half". The judgement is never about the
+      chart type in isolation, it is about whether the encoding matches the
+      question.
+reflection_prompt: "What did you find in the node 0.3 dataframe that you did not already know? If the honest answer is nothing, say so — and then say what that tells you about how you were looking."
+struggle_signals:
+  - "learner makes plots that confirm what they already believed"
+  - "learner reports the mean of a bimodal distribution without noticing it is bimodal"
+  - "learner treats exact-zero sensor readings as valid measurements"
+  - "learner styles plots before reading them"
+  - "learner never plots a distribution, only aggregates"
+---
+
+## Why this node exists
+
+Most plots in most notebooks are decoration. They are made after the analysis, to
+illustrate a conclusion already reached, and they are styled more carefully than
+they are read.
+
+This node is about the other kind: the plot you make *before* you know the
+answer, whose entire purpose is to show you something you were not looking for.
+That plot is usually ugly. It is also the one that catches the broken sensor, the
+duplicated rows, the impossible date, and the distribution that makes your model
+assumptions nonsense.
+
+The two datasets here are rigged so that the summary statistics are innocent and
+the picture is not.
+
+## The session
+
+### 1. Anscombe's quartet
+
+[`anscombe.csv`](/datasets/anscombe.csv) — 44 rows, four series of 11 points,
+published by Francis Anscombe in 1973 to make exactly this argument.
+
+Before plotting anything, compute for each series: mean and variance of x, mean
+and variance of y, the correlation, and the slope and intercept of the fitted
+line. Put them in a table. They will agree to two decimal places.
+
+Then plot all four as a 2x2 grid of scatter plots with the fitted line drawn on
+each.
+
+Describe each shape in one sentence. If you cannot, look longer — the whole
+point is that these four are obviously different once seen.
+
+### 2. The stuck sensor
+
+[`sensor-readings.csv`](/datasets/sensor-readings.csv) — 12,000 readings from
+four sensors over 24 hours.
+
+Somebody hands you this and asks for the average temperature. Do not answer yet.
+
+- Histogram `reading_c`, all sensors together. What do you notice about the
+  overall mean once you have seen this?
+- Histogram it again, one panel per sensor. One of them is different.
+- Count exact zeros. Where are they?
+- Now decide what the average temperature is, and be prepared to explain what
+  you excluded and why.
+
+### 3. Your own data
+
+Load the dataframe you cleaned in node 0.3 and go looking. Not for anything in
+particular — that is the exercise.
+
+Suggestions if you are stuck: the distribution of `amount`; transactions per
+customer; orders per day of week; whether `channel` behaves differently across
+`segment`; whether anything is suspiciously round.
+
+The checklist asks you to find at least one thing you did not know. There is
+something there.
+
+## The discipline being taught
+
+For any new dataset, three plots before anything else:
+
+1. **A histogram of every numeric column.** Catches bimodality, hard bounds,
+   spikes at defaults, impossible values, log-normal shapes that want a
+   transform.
+2. **A bar chart of every categorical column's value counts.** Catches
+   near-duplicate categories, unexpected levels, extreme imbalance.
+3. **Counts over time, if there is a time column.** Catches gaps, a pipeline that
+   broke for a week, a spike from a backfill.
+
+That is fifteen minutes. It routinely saves days.
+
+## On honest axes
+
+A few rules worth holding to, because each corresponds to a way readers get
+misled:
+
+- **Bar charts start at zero.** The bar's length is the encoding; truncating the
+  axis breaks the encoding. Line charts showing change over time do not have this
+  constraint.
+- **Label the axis with its unit.** "Temperature" is not a label; "temperature
+  (°C)" is.
+- **Say how many points there are.** A trend from 12 observations and a trend
+  from 12,000 look identical and mean very different things.
+- **Do not use a rainbow colormap for a continuous quantity.** It creates
+  boundaries where the data is smooth. `viridis` is the default for good reasons.
+- **Plot the distribution, not just the aggregate.** Every plot in this session is
+  an argument for that one.
+
+## Common walls
+
+**Your Anscombe statistics do not match.** Check `ddof`. NumPy's `var` defaults to
+the population variance, pandas' to the sample variance. The published quartet
+figures use the sample version (`ddof=1`), which is what pandas gives you by
+default and numpy does not.
+
+**Your histogram looks like a single lump.** Your bin count is too low. The
+default of 10 hides almost everything; try 50, then 100, and watch what appears
+and disappears. Bin count is a parameter you should always try three values of.
+
+**You cannot see the zeros in the histogram.** 532 out of 12,000 is 4 percent —
+visible as a spike at the left edge, but easy to miss at low bin counts or with a
+wide x-range. Try `df.reading_c.value_counts().head()` as well; an exact repeated
+value shows up instantly in a value count and never in a distribution summary.
+
+**Your 0.3 plots are all of aggregates.** Sums and means by group are the plots
+you make when you already know the question. Plot the raw distribution first.
+
+## Before you move on
+
+Phase 1 turns to the mathematics, and node 1.3 will hand you distributions as
+formal objects. Having already seen a bimodal distribution refuse to be described
+by its mean makes that material land as a description of something real rather
+than as notation.

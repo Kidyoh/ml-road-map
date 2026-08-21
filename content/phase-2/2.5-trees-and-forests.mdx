@@ -1,0 +1,227 @@
+---
+id: "2.5"
+phase: 2
+order_index: 5
+title: "Decision trees and random forests"
+slug: "trees-and-forests"
+prereqs: ["2.3"]
+status: "published"
+goal: "You can explain why averaging many overfit trees works, and read a feature importance without over-trusting it."
+resources:
+  primary:
+    name: "scikit-learn User Guide — Ensemble methods, sections 1.11.1 to 1.11.2"
+    url: "https://scikit-learn.org/stable/modules/ensemble.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "StatQuest — Random Forests, parts 1 and 2"
+    url: "https://www.youtube.com/watch?v=J4Wdy0Wc_xQ"
+    type: "video"
+    cost: "free"
+session:
+  brief: "Grow a tree until it memorises the training set perfectly and watch its cross-validated score get worse. Then average three hundred such trees and watch it recover. Finally, discover that logistic regression beats all of them on this dataset, and work out why."
+  difficulty: "medium"
+checklist:
+  - "load_breast_cancer gives me shape (569, 30) with 212 malignant and 357 benign"
+  - "A depth-3 tree has exactly 8 leaves and 15 nodes, and scores 0.9789 accuracy on the training data it was fitted to"
+  - "An unlimited-depth tree reaches exactly 1.0000 training accuracy with 22 leaves and depth 7"
+  - "The unlimited tree's 5-fold cross-validated ROC AUC is 0.9210 — WORSE than the depth-3 tree's 0.9409, despite perfect training accuracy"
+  - "A 300-tree random forest scores 0.9923 cross-validated ROC AUC, recovering everything the single deep tree lost and more"
+  - "Logistic regression on standardized features scores 0.9955 — higher than the random forest, and I checked rather than assumed"
+  - "I refitted the random forest with 5 different random seeds and the top-3 features by importance changed order between at least two of them"
+  - "I added a column of pure random noise and it received a non-zero Gini importance — I recorded the value"
+  - "I computed permutation importance as well, and it ranks the noise column near zero where Gini importance does not"
+questions:
+  - prompt: "Your unlimited tree got 100% training accuracy and a worse cross-validated score than a depth-3 tree. Explain what the extra depth actually bought, in terms of what the tree is fitting."
+    answer_key: >-
+      It bought memorisation. Each additional split partitions the training data
+      further, and with enough splits every training point ends up in its own pure
+      leaf — at which point the tree reproduces the training labels exactly, by
+      construction, having learned nothing generalisable. The deep splits are
+      responding to noise: a leaf containing three patients whose particular
+      measurements happened to line up is describing those three patients, not the
+      relationship between measurements and diagnosis. On new data, the rule that
+      isolated them is arbitrary. The depth-3 tree cannot do this — with only
+      eight leaves it is forced to find splits that hold for large groups, which
+      is the same thing as being forced to find real structure. This is the
+      bias-variance tradeoff in its clearest form: the deep tree has almost no
+      bias and enormous variance, and cross-validation measures the sum.
+  - prompt: "Averaging 300 of those overfit trees produced a much better model than any one of them. Explain the mechanism, and say what would break it."
+    answer_key: >-
+      Each fully grown tree has low bias and high variance — it is right on
+      average but wildly unstable. Averaging many unbiased high-variance
+      estimators reduces variance while leaving bias alone, so the average is both
+      approximately unbiased and much more stable. The catch is that averaging
+      only reduces variance to the extent that the errors are independent: if all
+      300 trees made the same mistakes, averaging would change nothing. That is
+      why random forests inject two sources of randomness rather than one —
+      bootstrap sampling of the rows, so each tree sees a different dataset, and
+      random subsetting of the features at every split, so no single dominant
+      feature is chosen first by every tree. The second matters more than it looks;
+      without it, a strong feature makes every tree nearly identical near the root
+      and the correlation between trees stays high. What breaks the whole scheme
+      is anything that makes the trees agree — too few features to subsample, a
+      feature so dominant that it is picked whenever it is offered, or trees so
+      shallow they are all the same simple rule.
+  - prompt: "Logistic regression beat the random forest on this dataset. Give a reason why that is not surprising, and say what would have to be true about a dataset for the forest to win."
+    answer_key: >-
+      The breast cancer features are continuous measurements of size, texture and
+      shape, and the classes are close to linearly separable in that space — the
+      relationship really is approximately "larger and more irregular means
+      malignant", monotonic in most features. A linear model is exactly the right
+      shape for that, and it uses every feature smoothly, whereas a tree has to
+      approximate a smooth monotonic boundary with axis-aligned staircases, which
+      costs it accuracy and data efficiency. With 569 rows, the forest is also
+      operating on very little data. Forests win when the true relationship is not
+      smooth or not monotonic: interactions that matter only in combination,
+      thresholds with genuine meaning such as a legal age limit, features whose
+      effect reverses over their range, and heterogeneous tabular data mixing
+      categoricals with numerics on unrelated scales. They also win when you
+      cannot be bothered to scale, transform or engineer anything, which is a real
+      and underrated advantage. The lesson is that model families encode
+      assumptions about shape, and the right one depends on the data rather than
+      on which is newer.
+  - prompt: "Your random noise column received a non-zero Gini importance, and permutation importance ranked it near zero. Explain why the two disagree, and say which you would report."
+    answer_key: >-
+      Gini importance, also called mean decrease in impurity, adds up how much
+      each feature reduced impurity across every split it was used in, measured on
+      the training data. A continuous random column has many distinct values, so
+      it offers a great many possible split points, and with enough of them some
+      split will reduce training impurity by chance — especially deep in the tree
+      where the node contains few samples. So the metric rewards features for
+      being high-cardinality and for being available to overfit with, which is a
+      well-documented bias toward continuous and high-cardinality variables.
+      Permutation importance instead measures the drop in a held-out score when
+      that column's values are shuffled, so a column with no real relationship
+      causes no drop and scores about zero. Report permutation importance, on
+      held-out data, and be aware of its own limitation: when two features are
+      correlated, shuffling one alone lets the model lean on the other, so both
+      look unimportant. For anything consequential, use a method built for
+      correlated features or group them before permuting.
+reflection_prompt: "You watched a model with 100% training accuracy lose to a much simpler one. Where else have you seen a number that could only go up being treated as evidence of quality?"
+struggle_signals:
+  - "learner reports training accuracy as if it were performance"
+  - "learner assumes the ensemble must beat the linear model"
+  - "learner reads Gini importance as causal or even as reliable"
+  - "learner tunes tree depth without a validation split"
+---
+
+## Why this node exists
+
+Trees are the first model family in this roadmap that can memorise its training
+data completely, which makes them the clearest possible demonstration of
+overfitting. You will watch a model achieve a perfect score and get worse.
+
+They are also the foundation of gradient boosting, which is node 2.6 and which is
+still, for tabular data, usually the thing that wins.
+
+And this node contains a second lesson that tutorials rarely deliver: the
+ensemble is going to lose to logistic regression, and understanding why is worth
+more than the win would have been.
+
+## The session
+
+`sklearn.datasets.load_breast_cancer()` — 569 rows, 30 features, 212 malignant
+and 357 benign. Everything here is 5-fold stratified cross-validation with
+`random_state=0`.
+
+### 1. One tree, two depths
+
+```python
+DecisionTreeClassifier(max_depth=3, random_state=0)
+DecisionTreeClassifier(random_state=0)          # unlimited
+```
+
+| | Leaves | Depth | Train accuracy | CV ROC AUC |
+|---|---|---|---|---|
+| depth 3 | 8 | 3 | 0.9789 | **0.9409** |
+| unlimited | 22 | 7 | **1.0000** | 0.9210 |
+
+The deeper tree is perfect on the data it saw and worse on data it did not. Print
+the tree with `export_text` and look at the leaves near the bottom — they will
+contain one or two samples each.
+
+### 2. Three hundred trees
+
+```python
+RandomForestClassifier(n_estimators=300, random_state=0)
+```
+
+**0.9923** cross-validated ROC AUC. From 0.9210 to 0.9923 by averaging the same
+kind of model that scored 0.9210.
+
+Question 2 asks you for the mechanism. The short version: the individual trees
+are unbiased and unstable, and averaging kills instability.
+
+### 3. The comparison nobody runs
+
+| Model | CV ROC AUC |
+|---|---|
+| Always predict benign | 0.5000 |
+| Decision tree, depth 3 | 0.9409 |
+| Decision tree, unlimited | 0.9210 |
+| Random forest, 300 trees | 0.9923 |
+| **Logistic regression, standardized** | **0.9955** |
+
+The linear model wins. Run it yourself rather than taking this table's word for
+it — the checklist asks you to.
+
+This is not a trick dataset. It is a very common situation, and the habit of
+checking the simple model is worth more than any tuning you will ever do.
+
+### 4. Feature importance, and why to distrust it
+
+Three experiments:
+
+**Reseed.** Refit the forest with `random_state` 0 through 4 and compare the top
+three features each time. The order will change. If a ranking moves when you
+change a seed, it was never a ranking.
+
+**Add noise.** Append a column of `rng.normal(size=569)`. It has no relationship
+to anything. Look at its Gini importance — it will not be zero.
+
+**Permute.** Compute `permutation_importance` on held-out data. The noise column
+drops to about zero, where Gini importance gave it credit.
+
+Question 4 asks why. The short version: Gini importance rewards features for
+offering many places to split, and a continuous random column offers a great
+many.
+
+## How a tree actually splits
+
+At each node it tries every feature and every threshold, and picks the one that
+most reduces impurity:
+
+```
+Gini impurity = 1 - sum over classes of p^2
+```
+
+A node that is all one class has impurity 0. A 50/50 node has impurity 0.5. The
+split score is the weighted impurity of the children subtracted from the parent's.
+
+That is the entire algorithm. Everything else — depth limits, minimum samples
+per leaf, pruning — exists to stop it running to purity, because running to
+purity is exactly what produced your 1.0000 training accuracy.
+
+## Common walls
+
+**Your unlimited tree does not reach exactly 1.0000.** You have duplicate rows
+with conflicting labels, or you set a `min_samples_leaf`. Check both.
+
+**Your CV numbers differ slightly from the table.** Check that you are using
+`StratifiedKFold(5, shuffle=True, random_state=0)` and scoring `roc_auc`. Trees
+are sensitive to fold composition on 569 rows.
+
+**Your random forest takes a long time.** 300 trees on 569 rows should be under a
+second. If it is not, you have `n_jobs=1` and a very slow machine, or you are
+refitting inside a loop.
+
+**You concluded that forests are worse than linear models.** On this dataset, on
+this metric, with this much data. That is the correct scope of the conclusion,
+and node 2.6 will give you a case where the ordering flips.
+
+## Before you move on
+
+Node 2.6 replaces averaging with sequential correction — each tree fixing the
+previous ones' mistakes rather than voting independently. It is a small change
+in idea and a large change in behaviour, including in how easy it is to overfit.

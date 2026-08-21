@@ -1,0 +1,159 @@
+---
+id: "0.1"
+phase: 0
+order_index: 1
+title: "Python fundamentals"
+slug: "python-fundamentals"
+prereqs: []
+status: "published"
+goal: "You can write a Python program with functions, loops, dicts and comprehensions that produces a specific correct number, and you can tell a slow implementation from a fast one by running it."
+resources:
+  primary:
+    name: "The Python Tutorial — sections 3 to 5"
+    url: "https://docs.python.org/3/tutorial/index.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "Automate the Boring Stuff with Python — chapters 1 to 6"
+    url: "https://automatetheboringstuff.com/"
+    type: "book"
+    cost: "free"
+session:
+  brief: "Write three small programs, each of which produces one exact number. No libraries, no notebooks — three .py files you run from a terminal. Then make the slow one fast."
+  difficulty: "easy"
+checklist:
+  - "primes.py prints 9592 as the count of primes below 100,000"
+  - "primes.py prints 454396537 as their sum"
+  - "collatz.py prints 837799 as the starting number under 1,000,000 with the longest chain"
+  - "collatz.py prints 525 as that chain's length"
+  - "palindromes.py prints 19 numbers below 1,000,000 that are palindromic in base 10 and base 2, summing to 872187"
+  - "My first collatz.py took over 10 seconds; the memoised version finishes in under 5 (timed with `time python collatz.py`, not estimated)"
+  - "Every one of the three files runs with `python filename.py` from a fresh terminal and prints its answer without me editing anything"
+questions:
+  - prompt: "Your first Collatz solution recomputed the chain for 837,799 from scratch. Roughly how many of the numbers in that chain had you already computed the answer for earlier in the loop, and why does that make memoisation such a large win here?"
+    answer_key: >-
+      Almost all of them. Every Collatz chain descends into small numbers quickly,
+      and every chain that reaches a number n follows exactly the same path from
+      there on. So once you have computed the chain length for, say, 7, every
+      later chain that ever touches 7 can stop dead and add the stored value. The
+      naive version recomputes the tail of the chain roughly a hundred million
+      times across the full million starting points; the memoised version computes
+      each distinct number's tail once. This is the same shape of win you will
+      meet again in dynamic programming and in caching model predictions — the
+      trick is recognising that the subproblem repeats, not the caching itself.
+  - prompt: "You wrote a sieve for primes.py rather than testing each number with a loop up to its square root. Both are correct. Describe the difference in what work the two programs actually do, and name the situation where you would still reach for trial division."
+    answer_key: >-
+      Trial division asks, for each candidate independently, "is this one prime?"
+      and does roughly sqrt(n) divisions per candidate. The sieve inverts the
+      question: it starts with every number marked prime and repeatedly crosses
+      off multiples, so each composite gets touched once per distinct prime factor
+      and no divisions happen at all. Over a whole range the sieve is far less
+      total work, but it needs an array the size of the range held in memory up
+      front. You would still use trial division when you need to test one large
+      number in isolation, or when the range is too large to allocate — you cannot
+      sieve up to a number with forty digits, but you can trial-divide a single
+      candidate. Choosing between "answer this one query" and "precompute all
+      answers" is a decision you will make constantly later.
+  - prompt: "Explain, in your own words and without looking, what a dict comprehension does that a for-loop building a dict does not. Then say honestly whether you find the comprehension easier or harder to read."
+    answer_key: >-
+      Functionally, nothing — a dict comprehension is a for-loop that builds a
+      dict, written as one expression. What it adds is that the result is a single
+      value with no partially-built intermediate state visible, so it can be
+      passed directly to a function, and it signals to a reader that the loop does
+      nothing except build this dict. That last point is the real value: a
+      for-loop might also print, mutate something else, or break early, and a
+      reader has to check. A comprehension promises it does not. On readability
+      there is no correct answer here — comprehensions get hard to read fast once
+      they carry a conditional and a nested loop, and "I would write this one as a
+      loop" is a perfectly good professional judgement. The point of the question
+      is that you have an opinion you can defend.
+reflection_prompt: "Which of the three programs did you get wrong on the first run, and what did the wrong number turn out to be caused by? Be specific — 'off by one' is a category, not an answer."
+struggle_signals:
+  - "learner reaches for numpy or a library instead of writing the loop"
+  - "learner cannot say why the memoised version is faster, only that it is"
+  - "learner tweaks code until the number matches rather than finding the bug"
+---
+
+## Why this node exists
+
+Everything after this assumes you can write a loop, a function and a dict without
+thinking about it. Not "have seen the syntax" — write them while your attention is
+on the actual problem.
+
+The three programs below each have exactly one correct answer. That is deliberate.
+You will not have to wonder whether you got it right, and you cannot half-get it.
+Almost nothing later in this roadmap has that property, so enjoy it.
+
+## The session
+
+Three files. Plain Python, standard library only, run from a terminal.
+
+### 1. `primes.py`
+
+Print how many prime numbers there are below 100,000, and their sum.
+
+Write it however you like first. Then, if you used trial division, write the sieve
+of Eratosthenes version too and compare how long each takes. Question 2 asks you
+about the difference, so do actually run both.
+
+### 2. `collatz.py`
+
+The Collatz sequence: start at any positive integer. If it is even, halve it. If it
+is odd, triple it and add one. Repeat. Every starting number tested so far
+eventually reaches 1.
+
+Find the starting number below 1,000,000 that produces the longest chain, and
+report the chain length. Count both endpoints — the chain starting at 13 is
+13, 40, 20, 10, 5, 16, 8, 4, 2, 1 and has length 10.
+
+**Write the naive version first and time it.** It will take somewhere between ten
+seconds and a couple of minutes depending on your machine. Do not skip this step —
+the checklist asks you to compare, and the comparison is the lesson. Then add
+memoisation and time it again.
+
+```bash
+time python collatz.py
+```
+
+On Windows PowerShell, `Measure-Command { python collatz.py }`.
+
+### 3. `palindromes.py`
+
+Find every number below 1,000,000 that reads the same forwards and backwards in
+base 10 **and** in base 2. Print how many there are and their sum. Leading zeros do
+not count in either base, so 10 in binary is `1010` and is not a palindrome.
+
+`bin(n)` gives you a string starting with `0b`. Slicing that prefix off is part of
+the exercise.
+
+## What good looks like
+
+A reader should be able to open your `collatz.py` and see, in under ten seconds,
+where the memoisation lives. If your cache is threaded through four functions and a
+global, rewrite it. Habits formed here follow you into every notebook you ever
+write.
+
+## Common walls
+
+**Your prime count is 9591 or 9593.** You have an off-by-one at the boundary.
+"Below 100,000" excludes 100,000 itself, and 1 is not prime. Print the first and
+last few primes your program finds and check them by eye rather than adjusting the
+range until the number matches — matching a number you were told is not the same as
+being right, and the habit of tweaking until green will cost you badly in node 2.3.
+
+**Your Collatz chain length is off by one.** Almost always the endpoint convention.
+Test your function on 13 — you should get exactly 10.
+
+**Your memoised Collatz is barely faster.** You are probably caching only the
+starting numbers rather than every intermediate value you compute along the way.
+The whole win comes from the intermediates.
+
+**Collatz overflows or hangs.** It should not in Python, whose integers are
+arbitrary precision. If it hangs, you have a sign error making the sequence climb
+forever — print the first twenty values for a starting number you know works.
+
+## Before you move on
+
+Node 0.2 assumes you can write these loops without effort, because it is going to
+ask you to stop writing them and think in whole arrays instead. That transition
+only makes sense if the loop version is something you could have written.

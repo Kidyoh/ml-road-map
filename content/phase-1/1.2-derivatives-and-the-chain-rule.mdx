@@ -1,0 +1,247 @@
+---
+id: "1.2"
+phase: 1
+order_index: 2
+title: "Derivatives and the chain rule"
+slug: "derivatives-and-the-chain-rule"
+prereqs: ["1.1"]
+status: "published"
+goal: "You can differentiate a composed function by hand and verify it numerically with a gradient-check helper you wrote yourself and will reuse in node 4.1."
+resources:
+  primary:
+    name: "3Blue1Brown — Essence of Calculus, chapters 1 to 4"
+    url: "https://www.3blue1brown.com/topics/calculus"
+    type: "video"
+    cost: "free"
+  alt:
+    name: "Khan Academy — Differentiation: composite, implicit, and inverse functions"
+    url: "https://www.khanacademy.org/math/ap-calculus-ab/ab-differentiation-2-new"
+    type: "course"
+    cost: "free"
+session:
+  brief: "Write a reusable gradient checker, then use it to catch a deliberately wrong derivative. You will import this helper again in node 4.1 to verify an autograd engine you have not written yet, so build it properly."
+  difficulty: "medium"
+checklist:
+  - "For f(x) = sin(x^2) at x = 1.3 my analytic derivative is -0.3091960802 and my central-difference estimate agrees to at least 8 decimal places"
+  - "My central difference with h = 1e-5 has absolute error about 2.2e-10, and my forward difference has error about 3.5e-5 — roughly 100,000 times worse"
+  - "I swept h from 1e-1 down to 1e-12 and my error curve is U-shaped, with the minimum somewhere near h = 1e-5 rather than at the smallest h"
+  - "`gradcheck` lives in its own file, takes a function and its claimed gradient, and returns the largest relative error — I called it from a different file to prove it is reusable"
+  - "I planted a wrong derivative (a dropped factor of 2) and gradcheck caught it with a relative error above 0.1"
+  - "My hand-derived chain rule for f(x) = sigmoid(w*x + b) passes gradcheck for w, x and b independently, all with relative error below 1e-7"
+  - "My derivative of the sigmoid simplifies to s*(1-s), and I verified that numerically at x = 0, 2 and -3"
+  - "Everything is done with plain Python and numpy — no autograd library appears anywhere in my code"
+questions:
+  - prompt: "Your error curve for the finite difference was U-shaped: it got better as h shrank, then worse. Explain both halves of that curve."
+    answer_key: >-
+      Two errors are fighting. Truncation error comes from the fact that a finite
+      difference approximates a limit — for the central difference the leftover
+      terms in the Taylor expansion are of order h squared, so shrinking h shrinks
+      this error quadratically. That is the left half getting better. Rounding
+      error comes from the floating-point subtraction in the numerator: as h gets
+      small, f(x+h) and f(x-h) become nearly equal, and subtracting two nearly
+      equal doubles cancels the leading digits, leaving you dividing whatever
+      precision remains by an ever-smaller number. That error grows roughly like
+      machine epsilon over h. Their sum is minimised somewhere in the middle,
+      around the cube root of machine epsilon for the central difference, which is
+      about 1e-5 for float64. This is why "just use a tiny h" is wrong, and why
+      gradient checking is done in double precision — in float32 the usable window
+      is so narrow that gradient checks become unreliable, which is a real
+      practical trap in deep learning code.
+  - prompt: "State the chain rule in your own words, then explain why it is the entire reason backpropagation is computationally feasible."
+    answer_key: >-
+      If a value depends on an input through a chain of steps, the sensitivity of
+      the final value to the input is the product of the sensitivities at each
+      step: change the input a little, each stage amplifies or damps that change
+      by its own local factor, and the total effect is those factors multiplied
+      together. The reason this makes backpropagation cheap is that the factors
+      are local — each step only needs to know its own derivative and the
+      accumulated sensitivity handed to it from the step above. So you can compute
+      the gradient with respect to every parameter in the network with a single
+      backward sweep whose cost is about the same as one forward pass, no matter
+      how many parameters there are. The alternative, perturbing each parameter
+      and re-running the forward pass, costs one forward pass per parameter. For a
+      model with a hundred million parameters that is the difference between
+      milliseconds and months. Backpropagation is not a clever algorithm so much
+      as the chain rule applied in the efficient direction.
+  - prompt: "Gradcheck reported a relative error of 0.5 on your planted bug and around 1e-9 on your correct derivatives. Explain why relative error rather than absolute error is the right thing to report, and name a case where a large relative error is not a bug."
+    answer_key: >-
+      Absolute error is meaningless without knowing the scale of the quantity. A
+      discrepancy of 0.01 is catastrophic for a gradient whose true value is 0.001
+      and completely irrelevant for one whose true value is 10,000. Relative error
+      — the difference divided by the magnitude — is comparable across parameters
+      and across models, which is what lets you set a single threshold like 1e-7
+      and apply it everywhere. The case where a large relative error is not a bug
+      is when the true gradient is at or near zero: dividing by something tiny
+      inflates the ratio, and the standard defence is to divide by the maximum of
+      the two magnitudes plus a small epsilon rather than by one of them. The
+      other honest case is a genuine kink in the function. ReLU has no derivative
+      at exactly zero, and a finite difference straddling the kink averages the
+      two one-sided slopes, so it disagrees with whatever convention the analytic
+      code picked. That is a real limitation of gradient checking rather than a
+      bug in either side.
+  - prompt: "You will import this gradcheck helper in node 4.1 to test an autograd engine. What would make a gradient checker good enough to trust with that, and what would make it worthless?"
+    answer_key: >-
+      Good enough: it perturbs one scalar at a time and restores it exactly
+      afterwards, so a bug in the checker cannot corrupt the thing being checked.
+      It uses the central difference, in float64, with h around 1e-5. It reports
+      relative error with a safe denominator. It returns the worst case across all
+      parameters rather than an average, because a single wrong gradient is a bug
+      no matter how many correct ones surround it. It tells you which parameter
+      failed, not just that something did. And it works on arbitrary shapes by
+      iterating over a flattened view. Worthless: reusing any part of the analytic
+      implementation to compute the numerical estimate, which is the classic way a
+      test passes while both sides are wrong in the same direction. Also worthless
+      is checking a single scalar and concluding the whole engine is fine, or
+      testing only at inputs where the function is nearly linear, since almost any
+      wrong derivative looks right there.
+reflection_prompt: "Where did your hand-derived chain rule go wrong the first time — a dropped factor, a sign, a term you forgot to sum? Be specific, because that same mistake will reappear in node 4.1 and you will want to recognise it."
+struggle_signals:
+  - "learner reaches for autograd instead of differentiating by hand"
+  - "learner uses forward differences and cannot say why central is better"
+  - "learner picks h = 1e-12 assuming smaller is always better"
+  - "learner writes gradcheck inline rather than as a reusable function"
+---
+
+## Why this node exists
+
+The chain rule is the whole of backpropagation. Not an analogy for it — it is
+literally the rule, applied in a particular order.
+
+Node 4.1 asks you to build an autograd engine from scratch, and Appendix B of the
+build plan is explicit that it is not skippable. What makes that node survivable
+is having a gradient checker you already trust, written before you had any stake
+in the answer. Build it here, while the functions are small enough that you can
+also do the calculus by hand and see the two agree.
+
+## The session
+
+### 1. Finite differences, and why h matters
+
+Take `f(x) = sin(x^2)`. By hand, `f'(x) = 2x cos(x^2)`. At `x = 1.3` that is
+`-0.3091960802`.
+
+Now estimate it numerically two ways:
+
+```python
+forward = (f(x + h) - f(x)) / h
+central = (f(x + h) - f(x - h)) / (2 * h)
+```
+
+With `h = 1e-5`, the central difference should be right to about 2e-10 and the
+forward difference to about 3.5e-5. Confirm both.
+
+**Then sweep h** from `1e-1` down to `1e-12`, log-log plot the absolute error, and
+find where it bottoms out. It will not be at the smallest h. Question 1 asks you
+why.
+
+### 2. The gradient checker
+
+Put this in its own file. You will import it in node 4.1.
+
+```python
+# gradcheck.py
+import numpy as np
+
+def gradcheck(f, params, analytic_grads, h=1e-5):
+    """Compare analytic gradients against central differences.
+
+    f              callable taking no arguments, returning a scalar loss,
+                   reading the current values of `params`
+    params         list of numpy arrays, perturbed in place and restored
+    analytic_grads list of arrays, same shapes, from the code under test
+
+    Returns the worst relative error, and which parameter produced it.
+    """
+    worst, where = 0.0, None
+    for pi, (p, g) in enumerate(zip(params, analytic_grads)):
+        it = np.nditer(p, flags=["multi_index"])
+        while not it.finished:
+            idx = it.multi_index
+            original = p[idx]
+            p[idx] = original + h
+            plus = f()
+            p[idx] = original - h
+            minus = f()
+            p[idx] = original          # restore exactly
+            numeric = (plus - minus) / (2 * h)
+            denom = max(abs(numeric), abs(g[idx]), 1e-12)
+            rel = abs(numeric - g[idx]) / denom
+            if rel > worst:
+                worst, where = rel, (pi, idx)
+            it.iternext()
+    return worst, where
+```
+
+Note what it does *not* do: it never calls anything from the code under test to
+compute the numeric estimate. That independence is the entire value.
+
+### 3. Catch a planted bug
+
+Differentiate `f(x) = sin(x**2)` by hand, then deliberately write the derivative
+as `x * cos(x**2)` — dropping the factor of 2. Run gradcheck. It should report a
+relative error around 0.5.
+
+Do this before you trust the checker on anything real. A gradient checker that
+has never caught a bug is a gradient checker you have no evidence about.
+
+### 4. The chain rule on something you will actually use
+
+```
+z = w * x + b
+s = sigmoid(z) = 1 / (1 + exp(-z))
+L = (s - y) ** 2
+```
+
+Derive `dL/dw`, `dL/db` and `dL/dx` by hand. Work outward from the loss:
+
+```
+dL/ds = 2 * (s - y)
+ds/dz = s * (1 - s)
+dz/dw = x        dz/db = 1        dz/dx = w
+```
+
+Then multiply along the chain. Gradcheck all three.
+
+The middle line is worth memorising: the sigmoid's derivative is expressible in
+terms of its own output, which is why implementations cache the forward value
+rather than recomputing. Verify it numerically at `x = 0`, `2` and `-3`.
+
+## Notation, once
+
+You will see three notations for the same thing. They are the same thing.
+
+| Written | Read as |
+|---|---|
+| `f'(x)`, `df/dx` | derivative of a scalar function of one variable |
+| `∂L/∂w` | partial derivative: rate of change in w with everything else held |
+| `∇L` | gradient: the vector of all partials, pointing uphill |
+
+The gradient points in the direction of steepest *increase*. Node 1.5 walks the
+other way, which is where the minus sign in gradient descent comes from.
+
+## Common walls
+
+**Your analytic and numeric gradients differ by exactly a factor of 2.** You
+either forgot the 2 in the central difference denominator, or you dropped a factor
+of 2 from a squared term. Both are common enough to check first.
+
+**Everything passes with error around 1e-16 and you are suspicious.** You should
+be. Check that your numeric path genuinely does not call your analytic code, and
+that `f()` actually re-reads the perturbed parameters rather than a cached value.
+A checker that passes trivially is worse than none.
+
+**Gradcheck fails only for some entries of an array.** Look at which ones. If it
+is the boundary entries, you have an indexing bug. If it is entries where the
+true gradient is near zero, it is the denominator problem from question 3, not a
+bug.
+
+**Your relative errors are around 1e-3 and nothing is obviously wrong.** Check
+your dtype. In float32 the usable window for finite differences is very narrow,
+and 1e-3 is roughly what a correct gradient looks like there. Cast to float64 for
+checking.
+
+## Before you move on
+
+Node 1.5 uses these derivatives to actually minimise something, and will ask you
+to make it diverge on purpose. Node 4.1 hands your gradcheck a much larger
+surface to test. Keep the file.

@@ -1,0 +1,267 @@
+---
+id: "2.3"
+phase: 2
+order_index: 3
+title: "Train/val/test, cross-validation, leakage"
+slug: "validation-and-leakage"
+prereqs: ["2.2"]
+status: "published"
+goal: "You can spot and fix data leakage before it flatters your metrics, and you can explain why a held-out set did not catch it."
+resources:
+  primary:
+    name: "scikit-learn User Guide — Cross-validation: evaluating estimator performance"
+    url: "https://scikit-learn.org/stable/modules/cross_validation.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "Kaggle — Data Leakage"
+    url: "https://www.kaggle.com/code/alexisbcook/data-leakage"
+    type: "course"
+    cost: "free"
+session:
+  brief: "You are given a deliberately leaky pipeline that reports a cross-validated ROC AUC of 0.9966. Find and fix three leaks. The score is supposed to get worse."
+  dataset: "/datasets/leaky-churn.csv"
+  difficulty: "hard"
+checklist:
+  - "Running the unmodified leaky_pipeline.py prints a cross-validated ROC AUC of 0.9966 and a held-out ROC AUC of 0.9968"
+  - "I noticed before reading further that those two numbers AGREE, and I can say why that is not reassuring"
+  - "For each of the three leaks I can point at the specific line in leaky_pipeline.py and say what it lets the model see that it would not have at prediction time"
+  - "A rule with no model in it at all — predict churn when days_since_last_login is 30 or more — is correct on 5883 of the 6000 rows"
+  - "Target-encoding promo_code on the full dataset scores 0.7949 ROC AUC on its own; encoded honestly inside the CV folds the same column scores 0.4899, which is worse than a coin flip"
+  - "Fixing only the scaler changes my CV score by less than 0.001"
+  - "Fixing the promo encoding but leaving days_since_last_login in place still leaves me above 0.99"
+  - "My fully fixed pipeline scores between 0.74 and 0.76 CV ROC AUC — it DROPPED by more than 0.24 from the leaky version"
+  - "My fixed CV score and my fixed held-out score agree within 2% of each other"
+  - "My fixed pipeline contains no call to fit or fit_transform outside a Pipeline or ColumnTransformer"
+questions:
+  - prompt: "Why did the score go DOWN after you fixed the pipeline? Answer as if to a manager who has just watched a model get worse and wants to know why you are pleased about it."
+    answer_key: >-
+      The score did not go down. The score was never 0.9966 — that number was a
+      measurement of a model that had been shown the answer, and it was never a
+      prediction of anything. 0.7497 is the first honest estimate we have of how
+      this model will do on a customer it has not seen. The change is not the
+      model getting worse; it is the measurement getting correct. What actually
+      went down is our confidence, and it went down to the level it should have
+      been at the whole time. The concrete business framing: had we shipped the
+      first version, it would have been rolled out on the strength of a 0.99, and
+      in production it would have performed somewhere near 0.75 — not because it
+      degraded, but because production is the first place it was ever measured
+      honestly. Discovering that now costs one afternoon. Discovering it after the
+      retention campaign has been budgeted against a 0.99 costs considerably more.
+  - prompt: "The leaky pipeline's cross-validated score and its held-out score agreed to four decimal places. A held-out test set is the standard defence against overfitting. Explain precisely why it failed here, and say what class of problem a held-out set does and does not protect you against."
+    answer_key: >-
+      A held-out set only protects you against the model memorising the training
+      rows. It does nothing about a feature that is contaminated everywhere,
+      because the contamination is in the test set too. Both leaks here are of
+      that kind: days_since_last_login was measured after the outcome for every
+      row, train and test alike, and the promo_code encoding was computed from all
+      6,000 labels before the split, so the test rows' own labels are baked into
+      their own feature values. The train and test sets are equally poisoned, so
+      they agree beautifully. That agreement is the trap — it reads as evidence of
+      a robust model and is in fact evidence of nothing. Held-out sets catch
+      variance; they do not catch bias in how the features were constructed. The
+      only defences against this class of problem are structural: build every
+      transformation inside the pipeline so it can only ever see training folds,
+      and ask of every column "when, in real time, does this value become known,
+      and is that before or after the moment I need the prediction?"
+  - prompt: "Name a feature that could leak the future into training without being obviously wrong — not from this dataset, from a domain you know. Then say what question you would ask to catch it."
+    answer_key: >-
+      Any answer is acceptable if the feature is genuinely plausible and the
+      leakage is genuinely non-obvious. Strong examples: the number of support
+      tickets a customer filed, when tickets get filed *because* the account is
+      being cancelled; a "total order value" column recomputed nightly across the
+      customer's whole history, including orders placed after the prediction date;
+      an account status field that is set to "under review" only once a fraud
+      investigation has begun; a patient's discharge medication when predicting
+      diagnosis; a hospital-department code that only oncology patients ever get.
+      The catching question is always about timestamps rather than about
+      correlation: for each column, at what moment is this value written, and is
+      that moment strictly before the moment I would need to make the prediction?
+      A column whose value is updated after the fact is a leak even if it also
+      contains real signal. The practical version is to demand a "known-as-of"
+      timestamp for every feature and to reject any feature that cannot produce
+      one — if nobody can tell you when a column becomes true, you cannot use it.
+  - prompt: "Fixing the scaler changed your score by less than 0.001. Fixing the promo encoding while the login column was still present changed it by 0.0014. Only fixing all three moved the number. What does that tell you about the strategy of fixing one suspected leak at a time and re-checking the score?"
+    answer_key: >-
+      That the strategy does not work. Leaks mask each other. While
+      days_since_last_login is in the data the model can reach 0.99 using that
+      column alone, so removing any other source of leakage costs it nothing — it
+      simply leans harder on the one that remains, and the score barely moves. If
+      you had been hunting leaks by removing a suspect and watching for the score
+      to fall, you would have concluded that both the scaler and the promo
+      encoding were innocent, and shipped a pipeline with two live leaks in it.
+      The scaler case is sharper still: fixing it changes the score by literally
+      nothing here, and it is still unambiguously wrong — it would matter with a
+      different model, a smaller dataset, or a test set drawn from a different
+      period. Leak-hunting has to be done by auditing the construction of every
+      feature and every transform against the prediction timestamp, not by
+      ablating and watching the metric. The metric is the thing under suspicion;
+      you cannot use it as the judge.
+reflection_prompt: "What made the leaky version look convincing? Be specific about the moment you would have stopped looking if nobody had told you there were exactly three problems."
+struggle_signals:
+  - "learner is pleased by the 0.99 score before the fix"
+  - "learner treats the held-out score agreeing with CV as confirmation"
+  - "learner fixes one leak, sees the score barely move, concludes it was not a leak"
+  - "learner tries to keep days_since_last_login by transforming it instead of dropping it"
+  - "learner reveals the answer key before running the fixed pipeline once"
+---
+
+## Why this node exists
+
+This is the highest-value node in the roadmap.
+
+Everything up to here has been about building models. This node is about the
+single most common reason a model that looked excellent in a notebook does
+nothing in production. It is not a subtle statistical effect. It is a category of
+bookkeeping error that is invisible, produces no warnings, and makes your work
+look *better* — which is exactly why it survives review.
+
+You are going to watch a 0.9966 become a 0.7497 and you are going to be pleased
+about it. If you are not pleased about it, this node has not landed yet.
+
+## The session
+
+Download [`leaky-churn.csv`](/datasets/leaky-churn.csv) and
+[`leaky_pipeline.py`](/datasets/leaky_pipeline.py) into the same folder.
+
+```bash
+pip install pandas scikit-learn
+python leaky_pipeline.py
+```
+
+You should see:
+
+```
+cross-validated ROC AUC: 0.9966  (+/- 0.0016)
+held-out ROC AUC:        0.9968
+gap:                     0.0002
+```
+
+**Stop here and sit with that for a minute before reading on.** A five-fold CV
+score of 0.9966 with a standard deviation of 0.0016, confirmed by a held-out set
+to within two ten-thousandths. Every diagnostic you have been taught to run says
+this model is excellent and stable.
+
+There are three leaks. Find them, fix them, and report the honest number.
+
+The dataset is 6,000 customers, 11 columns, 1,640 of them churned — a base rate
+of 27.3%.
+
+### Rules for the session
+
+- You may not use the score to find the leaks. Read the code and read the column
+  names. The metric is the thing under suspicion.
+- Fix all three before re-scoring. Question 4 is about why.
+- No new features, no model changes, no hyperparameter tuning. The only thing
+  that changes is *when* each transformation gets to see data.
+
+## The thing to have in your head
+
+For every column, ask one question:
+
+> At the moment I would actually need this prediction, has this value been
+> written yet?
+
+Not "is this correlated with the target". Not "does this seem fair". **When does
+this value become known.** A column that is updated after the outcome occurs is a
+leak even when it also contains real, legitimate signal.
+
+And for every transformation, ask the same question a different way:
+
+> Which rows did this transformation get to look at when it was fitted?
+
+If the answer includes any row that will later be scored as validation or test,
+the transformation is leaking, whether or not the number moves.
+
+## What each leak is worth
+
+Once you have your own answer, this is what we measured. Do not read this table
+before you have three fixes of your own.
+
+<details>
+<summary>Ablation — open after you have fixed all three</summary>
+
+| What is fixed | CV ROC AUC |
+|---|---|
+| Nothing (the starter script) | 0.9966 |
+| Only the scaler | 0.9966 |
+| Only the promo encoding | 0.9952 |
+| Only dropping `days_since_last_login` | 0.8675 |
+| Promo encoding and scaler, login kept | 0.9955 |
+| All three | **0.7495** |
+
+Three things worth staring at.
+
+**The scaler fix is worth zero.** Not "small" — zero, to four decimal places. It
+is still unambiguously wrong, and with a different model or a test set drawn from
+a later period it would matter. A leak that costs nothing today is still a leak.
+
+**Fixing one at a time tells you nothing.** With the login column present, the
+model reaches 0.99 on that column alone, so removing another leak costs it
+nothing — it just leans harder on what is left. If you had hunted leaks by
+ablating and watching the score, you would have declared two of the three
+innocent.
+
+**The promo encoding is worth 0.118 AUC — but only once the login leak is gone.**
+The same fix is worth 0.0014 while the login column is in. Leaks mask each other.
+This is the reason leak-hunting is a code review, not an experiment.
+
+</details>
+
+## The promo code, specifically
+
+`promo_code` has 1,500 distinct values across 6,000 rows — a median of four
+customers per code. Replacing each code with the mean churn rate of customers who
+used it seems reasonable; one-hot encoding 1,500 columns clearly is not.
+
+But with four rows per group, a row's own label is one quarter of its own encoded
+value. The column stops being a feature and starts being a compressed copy of the
+target.
+
+The measurement:
+
+| How `promo_code` is encoded | ROC AUC, that column alone |
+|---|---|
+| Target-encoded on the full dataset | 0.7949 |
+| Target-encoded inside the CV folds | 0.4899 |
+
+The honest number is *below* 0.5. The promo codes in this dataset were assigned at
+random and carry no information about churn whatsoever. The 0.7949 is not weak
+signal — it is entirely the learner's own labels being read back to them.
+
+## Common walls
+
+**"I found two."** The third is not in the code. Read the column names and ask the
+timestamp question about each one.
+
+**You try to keep `days_since_last_login` by binning or capping it.** The problem
+is not its scale or its distribution. The value does not exist at prediction time.
+No transformation fixes that. Drop the column.
+
+**You fix the encoding by computing it on the training split only, once, before
+cross-validation.** Better, and still wrong: each CV fold then has an encoding
+fitted on rows that are in its own validation set. The encoder has to be inside
+the pipeline so it is refitted per fold. `sklearn.preprocessing.TargetEncoder`
+does the cross-fitting for you when used this way.
+
+**Your fixed score is around 0.86, not 0.75.** You dropped the login column but
+the promo encoding is still computed up front. Check the ablation table.
+
+**Your fixed score is above 0.99 and you cannot see why.** Something is still
+being fitted on the full dataset. Search your file for `fit_transform` and check
+every occurrence — the last checklist item exists for this exact reason.
+
+**Your CV and held-out numbers disagree by a lot after the fix.** That is a
+different problem and a real one — usually too small a test set, or a split that
+is not stratified. Check your split before assuming another leak.
+
+## Before you move on
+
+Node 3.1 builds RFM features over transactional data with a cutoff date, and it
+will ask you to carry this discipline forward. Node 4.3 is the deep-learning
+version of the same lesson. If the timestamp question is not yet automatic for
+you, come back to this node rather than pushing on.
+
+Node 2.3 is also one of the three nodes scheduled to get an in-browser execution
+runtime, precisely because self-verification here is the least trustworthy in the
+roadmap. Tick these boxes honestly; you are the only one checking.

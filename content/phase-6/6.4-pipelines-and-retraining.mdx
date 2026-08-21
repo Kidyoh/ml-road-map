@@ -1,0 +1,250 @@
+---
+id: "6.4"
+phase: 6
+order_index: 4
+title: "Pipelines and retraining"
+slug: "pipelines-and-retraining"
+prereqs: ["6.3"]
+status: "published"
+goal: "You have a retraining pipeline that refuses to promote a model that fails its gate, and you have proved the refusal by trying to sneak a worse model past it."
+resources:
+  primary:
+    name: "MLflow — Model Registry and stage transitions"
+    url: "https://mlflow.org/docs/latest/model-registry.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "Continuous Delivery for Machine Learning — Martin Fowler"
+    url: "https://martinfowler.com/articles/cd4ml.html"
+    type: "article"
+    cost: "free"
+session:
+  brief: "Build a pipeline that goes from raw data to a registered model without a human in the loop, with a promotion gate at the end. Then deliberately feed it a model that is worse than the incumbent and confirm it is rejected — the checklist requires this, and a gate you have never seen refuse anything is not a gate."
+  dataset: "/datasets/fraud-transactions.csv"
+  difficulty: "hard"
+checklist:
+  - "My pipeline runs end to end from one command: load data, validate, train, evaluate, gate, register"
+  - "Each stage fails loudly with a non-zero exit code and a message naming the stage, rather than continuing with bad inputs"
+  - "My data validation stage rejects a deliberately corrupted input file, and I recorded the message it produced"
+  - "My promotion gate compares the candidate against the CURRENT production model on the same held-out set, not against a fixed number"
+  - "I fed the gate a deliberately worse model — trained on 5% of the data or with learning_rate 1.0 — and it REFUSED to promote it"
+  - "I have the exact output of that refusal saved, showing the candidate metric, the incumbent metric, and the decision"
+  - "My gate checks at least 2 conditions beyond the headline metric, and I can name them"
+  - "A rejected candidate is still registered and still recorded, not silently discarded"
+  - "My pipeline is idempotent — running it twice on the same data produces the same result and does not double-register"
+  - "I can trace any registered model back to the pipeline run, the data version and the git commit that produced it"
+questions:
+  - prompt: "Show your gate's refusal output and explain each condition it checked. Why must the comparison be against the current production model rather than a fixed threshold?"
+    answer_key: >-
+      A fixed threshold rots. If the gate says "PR AUC must exceed 0.90" and the
+      production model is at 0.93, a candidate at 0.91 passes the gate and makes
+      the system worse — the threshold was set when 0.90 was good and nothing
+      updated it. Comparing against the incumbent makes the gate self-maintaining:
+      the bar rises as the system improves, and it automatically encodes the only
+      question that actually matters, which is whether this change is an
+      improvement on what we already have. The comparison must be on the same
+      held-out data for both models, evaluated at the same time, or you are
+      comparing numbers produced under different conditions — a candidate
+      evaluated on this month's data against an incumbent's score from three
+      months ago is not a comparison at all, since the data has changed underneath
+      both. The additional conditions beyond the headline metric typically
+      include: performance on important slices, so an aggregate gain that hides a
+      regression for one segment is caught; prediction latency; the prediction
+      distribution not having shifted wildly; and a floor on absolute performance
+      so that a slow collective decline cannot ratchet downward one small
+      improvement at a time.
+  - prompt: "Your rejected candidate is still registered and recorded. Argue for that, given that it is a model you have decided not to use."
+    answer_key: >-
+      Because the rejection is information and discarding it destroys the record.
+      Knowing that a candidate was trained, evaluated and refused — and by how
+      much it fell short — is what lets you see trends: if candidates have been
+      getting steadily worse for six weeks, something upstream is degrading and
+      the gate has been quietly protecting you from it while nobody looked. If a
+      rejected candidate is deleted, that pattern is invisible and the first
+      symptom is a much bigger problem. It also matters for debugging the gate
+      itself, since a gate that rejects everything is as broken as one that
+      accepts everything, and you cannot tell which you have without the history.
+      And occasionally the rejection is wrong — the held-out set was unlucky, or a
+      slice check was too strict — and being able to inspect and promote the
+      candidate manually is much better than retraining it. Registering with a
+      status rather than promoting costs almost nothing and keeps every option
+      open.
+  - prompt: "Explain what idempotence means for your pipeline, and why it matters for something that runs on a schedule."
+    answer_key: >-
+      Running the pipeline twice on the same input produces the same result and no
+      duplicate side effects — no second registered version, no double-appended
+      rows, no repeated notification. It matters on a schedule because scheduled
+      jobs get retried. A worker dies mid-run, a network blip causes the
+      orchestrator to re-queue, someone reruns a failed task manually, or a
+      backfill covers a window that already succeeded. If the pipeline is not
+      idempotent, each of those produces duplicate state that somebody has to
+      untangle by hand, usually under time pressure. Achieving it means making
+      each stage write to a deterministic location derived from the inputs rather
+      than from the current time, checking whether the output already exists
+      before doing the work, and using upsert semantics rather than insert.
+      Registering a model keyed on the data hash and the code commit is the
+      concrete version here: a rerun with identical inputs finds the existing
+      version and does nothing, rather than creating version 12 identical to
+      version 11.
+  - prompt: "Your pipeline retrains automatically. Describe the failure mode where automatic retraining makes things worse, and say what you would put in place to catch it."
+    answer_key: >-
+      The dangerous case is a feedback loop, where the model's own predictions
+      shape the data it is next trained on. A fraud model that blocks
+      transactions never observes whether those would have been fraudulent, so the
+      next training set contains only the cases the model let through — it learns
+      from a population it has already filtered, and its blind spots compound with
+      every retrain. Recommenders have the same structure: users can only click
+      what was shown, so the next model learns that what was shown is what people
+      want. A second failure mode is silent label corruption upstream: if labels
+      start arriving late or wrong, retraining faithfully learns the corruption
+      and the gate may not catch it, because the held-out set is corrupted the
+      same way — which is node 2.3's lesson at pipeline scale. What to put in
+      place: hold out a small random fraction from the model's own decisions so
+      you keep observing outcomes you would otherwise never see; validate label
+      quality as a pipeline stage rather than assuming it; monitor the prediction
+      distribution over time as node 6.5 does, since a feedback loop usually shows
+      up there before it shows up in a metric; and keep a human approval step for
+      promotion when the stakes justify it, because full automation is a choice
+      rather than an obligation.
+reflection_prompt: "Your gate refused a bad model. Would it have caught a model that was better on average and much worse for one group of customers? If not, what would you add?"
+struggle_signals:
+  - "learner writes a gate but never tests that it can refuse"
+  - "learner compares against a fixed threshold"
+  - "learner discards rejected candidates"
+  - "learner has no data validation stage"
+  - "learner cannot trace a deployed model back to its run"
+---
+
+## Why this node exists
+
+Appendix B is specific: **the pipeline must refuse to promote a model that fails
+the gate, and the checklist verifies this by deliberately feeding it a worse
+model.**
+
+That instruction encodes something important. A gate that has never refused
+anything is not a gate — it is a piece of code you believe in. The only way to
+know it works is to make it fire.
+
+## The session
+
+### 1. The pipeline
+
+Five stages, each of which fails loudly:
+
+```
+load  ->  validate  ->  train  ->  evaluate  ->  gate  ->  register
+```
+
+Any orchestrator, or a shell script with `set -e`. Airflow, Prefect, Dagster and
+GitHub Actions are all fine — the tool is not the point, and a Makefile is a
+legitimate first version.
+
+What matters is that a failure at stage two stops everything, with a message
+naming the stage. A pipeline that continues with bad data is worse than one that
+does not run.
+
+### 2. Data validation as a real stage
+
+Before training, assert the things you would otherwise find out later:
+
+```python
+assert len(df) > MIN_ROWS,              f"only {len(df)} rows"
+assert df.is_fraud.isin([0, 1]).all(),  "unexpected label values"
+assert 0.001 < df.is_fraud.mean() < 0.02, f"base rate {df.is_fraud.mean():.4f} out of range"
+assert df.amount.min() > 0,             "non-positive amounts"
+assert set(EXPECTED_COLUMNS) <= set(df.columns), "missing columns"
+```
+
+Then corrupt a copy of the file and confirm it is rejected. Record the message.
+
+Node 0.3's discipline, promoted to infrastructure.
+
+### 3. The gate
+
+```python
+candidate = evaluate(new_model, holdout)
+incumbent = evaluate(load_production_model(), holdout)     # SAME holdout, SAME run
+
+checks = {
+    "beats_incumbent": candidate.pr_auc > incumbent.pr_auc + MIN_IMPROVEMENT,
+    "absolute_floor":  candidate.pr_auc > 0.85,
+    "no_slice_regression": all(
+        candidate.by_slice[s] > incumbent.by_slice[s] - SLICE_TOLERANCE
+        for s in SLICES
+    ),
+    "latency_ok":      candidate.p99_ms < 50,
+}
+
+if not all(checks.values()):
+    log_refusal(candidate, incumbent, checks)
+    register_as("rejected")
+    sys.exit(1)
+```
+
+Note that the comparison is against the **current production model**, on the
+**same** held-out data, evaluated **now**. Question 1 asks why a fixed threshold
+is not good enough.
+
+Note also the slice check. An aggregate improvement that hides a regression for
+one group is exactly the failure node 2.7's error analysis was built to find, and
+here it is automated.
+
+### 4. Now break in
+
+Train a deliberately bad candidate:
+
+- on 5% of the data, or
+- with `learning_rate=1.0`, which node 2.6 showed collapses to about 0.007 PR AUC
+
+Run the pipeline. **The gate must refuse it.**
+
+Save the output — candidate metric, incumbent metric, which checks failed, and
+the decision. That saved output is the checklist item, and it is the evidence
+that the gate exists.
+
+### 5. Keep the rejection
+
+Register the rejected candidate with a status rather than deleting it. Question 2
+argues why.
+
+### 6. Run it twice
+
+The same inputs must produce the same result and must not register a second
+identical version. Key the registration on the data hash and the commit from node
+6.3.
+
+## What a gate should check
+
+| Check | Catches |
+|---|---|
+| Beats incumbent on the primary metric | the obvious regression |
+| Absolute floor | a slow ratchet downward |
+| No slice regression | aggregate gains that hide group harm |
+| Prediction distribution is sane | a model that predicts one class |
+| Latency within budget | an accurate model too slow to serve |
+| Trained on enough recent data | a stale or truncated training set |
+
+The checklist asks for at least two beyond the headline metric. Slice checks are
+the ones most worth having.
+
+## Common walls
+
+**The gate always passes.** Test it by making it fail. That is the whole node.
+
+**Comparing against a stored incumbent score.** Scores are only comparable when
+computed on the same data at the same time. Re-evaluate the incumbent every run.
+
+**No production model exists yet.** Handle the bootstrap case explicitly — first
+model passes if it clears the absolute floor — rather than crashing on a missing
+comparison.
+
+**Your slices have too few rows.** With 222 frauds, a slice can have five. Set a
+minimum size below which a slice check is skipped and reported as skipped, rather
+than producing noise that blocks every promotion.
+
+**Rerunning creates version 12, 13, 14 identically.** Not idempotent. Question 3.
+
+## Before you move on
+
+Node 6.5 is what happens after promotion. The gate protects you at the moment of
+deployment; monitoring is what tells you the world changed afterwards.

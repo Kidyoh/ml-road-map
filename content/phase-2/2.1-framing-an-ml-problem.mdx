@@ -1,0 +1,230 @@
+---
+id: "2.1"
+phase: 2
+order_index: 1
+title: "Framing an ML problem"
+slug: "framing-an-ml-problem"
+prereqs: ["0.5", "1.5"]
+status: "published"
+goal: "You can turn a vague business request into a prediction target, a unit of prediction, a cutoff date and a baseline number — and say what decision the model would change."
+resources:
+  primary:
+    name: "Google — Introduction to Machine Learning Problem Framing"
+    url: "https://developers.google.com/machine-learning/problem-framing"
+    type: "course"
+    cost: "free"
+  alt:
+    name: "Rules of Machine Learning — Martin Zinkevich, rules 1 to 15"
+    url: "https://developers.google.com/machine-learning/guides/rules-of-ml"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "You are given a year of retail transactions and one sentence: 'can you predict which customers are going to leave?' Turn that into a specification precise enough that two people would build the same dataset from it — then build it, and beat the trivial baseline."
+  dataset: "/datasets/retail-events.csv"
+  difficulty: "medium"
+checklist:
+  - "retail-events.csv loads as 33,926 transactions across 2,780 distinct customers"
+  - "My written spec names the prediction unit, the label definition, the cutoff date, the feature window and the label window, in five sentences or fewer"
+  - "With a cutoff of 2024-10-01, exactly 27,480 transactions fall before it and my modelling population is 2,756 customers — those with at least one pre-cutoff transaction"
+  - "I excluded the 24 customers who only ever appear after the cutoff, and I can say why including them would be wrong"
+  - "My label — did this customer transact on or after 2024-10-01 — is positive for 1,550 of 2,756, a base rate of 0.5624"
+  - "My majority-class baseline gets exactly 56.24% accuracy and 0.5 ROC AUC, and I wrote both down before building anything else"
+  - "A single feature, days since last purchase, scores 0.8376 ROC AUC on its own — I computed this and it is the number any model of mine has to beat"
+  - "Frequency alone scores 0.7167 and monetary alone 0.6962, both below recency"
+  - "Every feature I built uses only transactions strictly before the cutoff, and I verified this by checking that my feature-building code never touches a row with order_date >= 2024-10-01"
+  - "I can name one decision this model would change and one thing that would have to be true for that decision to be worth automating"
+questions:
+  - prompt: "The request was 'predict which customers are going to leave'. List the choices you had to make that the request did not specify, and say why each one changes what gets built."
+    answer_key: >-
+      At minimum: what counts as leaving, since nobody cancels a retail account —
+      it has to be operationalised as an absence of activity over some window,
+      and the length of that window is a free choice that changes the label for
+      every customer. Who is in the population — everyone who ever bought, or
+      only people active recently, and if the latter, how recently. When the
+      prediction is made, because a model that predicts at the moment of the last
+      purchase and one that predicts on the first of every month are different
+      products. How far ahead it predicts. What the unit of prediction is — one
+      row per customer, or one row per customer per month. And what happens to
+      customers who first appear after the cutoff, who have no features at all.
+      Every one of these changes the base rate, the achievable accuracy and
+      whether the number means anything. Two competent people given only the
+      original sentence will produce datasets that disagree on most rows, which
+      is why the spec is the deliverable rather than the model.
+  - prompt: "Your best single feature, recency, scores 0.8376 AUC alone. Explain why establishing that number before modelling is more useful than it looks, and say what it would mean if your eventual model scored 0.84."
+    answer_key: >-
+      It converts the question from "is my model good" — unanswerable — into "is
+      my model better than the obvious thing" — answerable. Almost every
+      prediction problem has a stupid feature that carries most of the signal,
+      and if you do not measure it first you will report a respectable-looking
+      number without knowing that a single sorted column would have matched it.
+      Establishing it early also tells you when to stop: if the ceiling is near,
+      further modelling effort is better spent on data or on the framing than on
+      the algorithm. A model scoring 0.84 against a 0.8376 baseline has added
+      essentially nothing, and the honest report says so. That is not a failure —
+      it is a genuinely useful finding, because it means you can ship a rule
+      instead of a model, with all the operational simplicity that brings. The
+      failure mode is reporting 0.84 as a success because it sounds high in the
+      abstract.
+  - prompt: "Explain the cutoff date to someone who has not met one. Why can no feature be computed from data after it, and what does that have to do with how the model will be used in production?"
+    answer_key: >-
+      The cutoff is the moment the prediction is imagined to be made. Everything
+      before it is what you would know; everything on or after it is the future
+      you are trying to predict. A feature computed from post-cutoff data is
+      therefore a feature that will not exist when the model runs for real, no
+      matter how well it works in your notebook. The connection to production is
+      exact rather than analogous: in production, the model is called at some
+      moment with whatever the database holds at that moment, so training has to
+      simulate that moment faithfully or the training distribution and the
+      serving distribution are different in a way no validation split can detect.
+      This is why the discipline is to build features from a snapshot of history
+      up to the cutoff and labels from the window after it, and why "total
+      lifetime spend" — which sounds like a feature about the past — is a leak if
+      it is recomputed from the full table rather than as of the cutoff. Node 2.3
+      shows what that leak does to a metric, and node 3.1 makes you build twenty
+      features under this constraint.
+  - prompt: "You excluded 24 customers who only appear after the cutoff. Argue the other side: construct a framing in which including them would be correct, and say what would have to change about the problem."
+    answer_key: >-
+      Under this framing they must be excluded — they have no pre-cutoff
+      transactions, so there is nothing to compute features from, and including
+      them would mean predicting from an empty history. But a different question
+      makes them the whole point. If the problem were "of the people who show up
+      this quarter, which will become repeat customers", the population is
+      exactly the new arrivals, the features come from their first interaction
+      rather than from a history, and the cutoff moves to per-customer relative
+      time rather than a single calendar date. That is a cold-start problem, and
+      it is genuinely different: fewer features, weaker signal, and typically it
+      needs information the transaction table does not contain, such as
+      acquisition channel or first-session behaviour. The general lesson is that
+      "who is in the population" is a modelling decision with as much leverage as
+      the algorithm choice, and that a group being unmodellable under one framing
+      is a reason to ask whether the framing matches the decision, not a reason to
+      force them in.
+reflection_prompt: "Write down the sentence you would say to the person who asked for this, describing what you built and what it does not do. Then read it back and ask whether it oversells anything."
+struggle_signals:
+  - "learner starts training before writing down a label definition"
+  - "learner never computes a baseline"
+  - "learner computes features from the full transaction history rather than as of the cutoff"
+  - "learner cannot say what decision the model would change"
+---
+
+## Why this node exists
+
+Most machine learning projects that fail do not fail at the model. They fail
+because the thing being predicted was never pinned down, and everyone involved
+believed a slightly different version of it until the results arrived.
+
+This node has almost no modelling in it. It is about the hour of work before the
+modelling, which is the hour with the highest leverage and the one most often
+skipped because it does not feel like progress.
+
+## The session
+
+Someone hands you [`retail-events.csv`](/datasets/retail-events.csv) — a year of
+transactions, 33,926 rows, 2,780 customers — and says:
+
+> Can you predict which customers are going to leave?
+
+Do not open a notebook yet.
+
+### 1. Write the spec first
+
+Five sentences, maximum. It must pin down:
+
+| Decision | Example |
+|---|---|
+| **Unit of prediction** | one row per customer |
+| **Label** | did they transact on or after the cutoff |
+| **Cutoff date** | 2024-10-01 |
+| **Feature window** | all transactions strictly before the cutoff |
+| **Label window** | 2024-10-01 to the end of the data |
+| **Population** | customers with at least one pre-cutoff transaction |
+
+The test of a spec is that two people could build the same dataset from it
+without talking to each other. If yours leaves a choice open, it is not finished.
+
+Note that "leave" does not appear anywhere in the data. There is no cancellation
+event in a retail dataset — you have to invent the definition, and your invention
+is a modelling decision that everything downstream inherits.
+
+### 2. Build it
+
+With the cutoff at 2024-10-01:
+
+- 27,480 transactions fall before it
+- 2,756 customers have at least one — that is your population
+- 24 customers appear only after it, and must be dropped
+- 1,550 of the 2,756 transact again — a base rate of **0.5624**
+
+Check every one of those numbers. If yours differ, your cutoff comparison is
+probably inclusive where it should be exclusive.
+
+### 3. Baselines, before any model
+
+Two of them, in increasing order of respectability:
+
+**Majority class.** Predict "returns" for everyone. Accuracy 56.24%, ROC AUC
+exactly 0.5. This is the number that tells you accuracy is nearly worthless here.
+
+**Best single feature.** Compute days since last purchase, as of the cutoff, and
+use it directly as a score.
+
+| Feature alone | ROC AUC |
+|---|---|
+| Recency (days since last purchase) | **0.8376** |
+| Frequency (transaction count) | 0.7167 |
+| Monetary (total spend) | 0.6962 |
+
+Write 0.8376 on a sticky note. Everything you build from here has to beat it, and
+in node 2.2 you will find out whether a linear model does.
+
+### 4. The decision
+
+Finish by answering two questions in writing:
+
+- What would someone *do* differently because of this prediction?
+- What would have to be true for that action to be worth taking automatically?
+
+A model that changes no decision is a model nobody needed, and the time to find
+that out is now.
+
+## The leakage rule, stated early
+
+Every feature must be computable from data strictly before the cutoff.
+
+This sounds obvious and is violated constantly, because the natural way to write
+the code — group the whole table by customer, then join the label on — computes
+features over all twelve months. Total spend, transaction count, favourite
+category: all of them silently include the future.
+
+The defensive habit: filter first, aggregate second.
+
+```python
+pre = df[df.order_date < CUTOFF]      # do this once, at the top
+features = pre.groupby("customer_id").agg(...)
+```
+
+Node 2.3 shows you what happens when you get this wrong and do not notice.
+
+## Common walls
+
+**Your base rate is not 0.5624.** Check whether your cutoff comparison uses `<`
+or `<=`, and whether you are parsing dates or comparing strings. String
+comparison happens to work for ISO dates, which is why this bug survives.
+
+**Your population is 2,780 rather than 2,756.** You have included customers with
+no pre-cutoff activity. They have no features.
+
+**Your recency AUC is 0.1624.** You have the sign backwards — lower recency means
+more likely to return, so score on negative recency. An AUC below 0.5 is always a
+sign flip, and it is worth recognising instantly because it will happen again.
+
+**You cannot decide on the label window length.** Any defensible choice is fine
+as long as you write down why. Three months is a reasonable default here because
+it is a quarter and because it leaves enough positives to model. The point is
+that the choice is yours and has to be stated.
+
+## Before you move on
+
+Node 2.2 fits the first real model on exactly this dataset and compares it
+against the 0.8376 you just measured. Keep the spec, the population and the
+label — you will reuse them.

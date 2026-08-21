@@ -1,0 +1,245 @@
+---
+id: "5.1"
+phase: 5
+order_index: 1
+title: "Using LLM APIs properly"
+slug: "using-llm-apis"
+prereqs: ["4.6"]
+status: "published"
+goal: "You can decide, with a measurement rather than an opinion, whether an LLM is the right tool for a given task."
+resources:
+  primary:
+    name: "Anthropic — Prompt engineering overview"
+    url: "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/overview"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "OpenAI — Prompt engineering guide"
+    url: "https://platform.openai.com/docs/guides/prompt-engineering"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Take the fraud classifier from node 2.6 and build a prompted LLM classifier for the same task on the same data. Measure both on the same metric, and measure cost and latency too. The intended conclusion is that the LLM is the wrong tool — but measure it rather than taking that on faith."
+  dataset: "/datasets/fraud-transactions.csv"
+  difficulty: "medium"
+checklist:
+  - "I sampled a fixed evaluation set of exactly 500 transactions with a fixed random seed, and I use the same 500 for every comparison"
+  - "My gradient boosting model from node 2.6 scores on those same 500 rows, and I recorded its PR AUC and its recall at my chosen threshold"
+  - "My LLM classifier is prompted with the same features the boosting model gets — no more, no less — and I verified that by reading the rendered prompt"
+  - "I recorded the LLM's accuracy, precision and recall on the same 500 rows"
+  - "I recorded total token count, total cost in dollars, and median latency per call for the LLM run"
+  - "I computed cost per 1,000 classifications for both approaches, and the ratio between them is at least 100x"
+  - "I ran the same prompt twice at temperature 0 and recorded whether the outputs were identical"
+  - "I ran the same prompt at temperature 1 and recorded how many of the 500 predictions changed"
+  - "At least 3 of my 500 LLM responses failed to parse into a valid label on the first attempt, and I handled that rather than dropping them silently"
+  - "I can state in one sentence which tool I would ship for this task and why"
+questions:
+  - prompt: "State your measured comparison — the metric, the cost, and the latency for both approaches — and then say which you would ship."
+    answer_key: >-
+      The specific numbers will vary, but the shape is reliable: the boosting
+      model scores around 0.93 PR AUC, costs effectively nothing per prediction
+      once trained, and answers in well under a millisecond. The prompted LLM
+      scores worse — usually substantially, because it cannot learn the
+      dataset-specific thresholds that the training data encodes — costs
+      somewhere between a tenth of a cent and several cents per classification,
+      and takes between several hundred milliseconds and a few seconds. For a
+      task with a labelled training set, a fixed schema, high volume and a latency
+      budget, the answer is unambiguous: ship the boosting model. The LLM is
+      solving a much harder problem than the one you have — it is reasoning from
+      a description of fraud rather than from fifty thousand labelled examples —
+      and paying for generality you do not need. The point of measuring rather
+      than asserting is that the ratio is not close, and knowing it is a hundredfold
+      rather than merely "more" changes how quickly you stop arguing about it.
+  - prompt: "Describe a task for which the ordering would reverse, and be precise about what property of it makes the LLM the right tool."
+    answer_key: >-
+      Anything where you do not have labelled training data and cannot cheaply get
+      it, where the input is unstructured, or where the output space is open. Good
+      examples: routing free-text support emails into categories that were invented
+      last week, extracting structured fields from contracts of varying format,
+      summarising a document, deciding whether a piece of writing violates a
+      policy stated in prose, or any task where the specification is a paragraph
+      of English rather than a column of labels. The property that matters is the
+      ratio of specification cost to example cost. A gradient boosting model needs
+      thousands of labelled examples and gives you a fast cheap function; an LLM
+      needs a paragraph and gives you a slow expensive one. When examples are
+      expensive and specifications are cheap — new categories, long tail, tasks
+      that change weekly — the LLM wins outright, and it wins even harder when the
+      alternative is that the task simply does not get done. A common and
+      sensible hybrid is to use the LLM to produce labels and train a small fast
+      model on them.
+  - prompt: "Temperature 0 did or did not give identical outputs across runs. Explain what temperature does, and why 'deterministic' is not quite the right word even at zero."
+    answer_key: >-
+      Temperature scales the logits before the softmax that produces the
+      next-token distribution — the same softmax from node 4.5. High temperature
+      flattens the distribution and makes unlikely tokens more probable; low
+      temperature sharpens it; at zero the sampling collapses to taking the
+      highest-probability token every time, which is greedy decoding. That is
+      deterministic given identical logits, and the reason it is not quite the
+      right word is that identical logits are not guaranteed. Floating-point
+      reductions on GPUs are not associative, so batching, kernel selection and
+      hardware can change the last bits of a logit; where two tokens are nearly
+      tied, that is enough to flip the choice, and one flipped token changes
+      everything after it. Providers also update models behind a version label,
+      apply load balancing across differently configured hardware, and may inject
+      other variability. So temperature 0 means low variance, not a guarantee. For
+      anything you need to be reproducible, pin the model version, record the
+      exact prompt and the response, and treat the output as data rather than as a
+      function you can recompute.
+  - prompt: "Some of your responses failed to parse. Describe how you handled that, and explain why silently dropping unparseable responses is a serious error rather than a tidy-up."
+    answer_key: >-
+      Handling it properly means constraining the output first — asking for a
+      single token or a strict JSON schema, using a structured-output or tool-use
+      mode where the provider enforces the shape, and giving an explicit example —
+      then validating every response, then retrying failures once with the error
+      fed back, and finally recording anything that still fails as an explicit
+      failure category with a count. Dropping them silently is serious because the
+      failures are almost certainly not random. The cases where a model produces a
+      malformed or hedged response are the ambiguous ones, and ambiguous cases are
+      disproportionately the interesting ones — so removing them removes
+      precisely the hard examples and inflates every metric you compute on what
+      remains. It is the same structural error as excluding rows whose labels are
+      hard to determine, and it is a variety of survivorship bias. The reported
+      accuracy then describes a task easier than the real one, and nothing in the
+      pipeline says so.
+reflection_prompt: "You almost certainly had a prior about which tool would win before you measured. Was it right, and was it right for the reasons you thought?"
+struggle_signals:
+  - "learner does not measure cost or latency"
+  - "learner gives the LLM more information than the baseline model gets"
+  - "learner drops unparseable responses"
+  - "learner concludes from a handful of examples rather than a fixed eval set"
+---
+
+## Why this node exists
+
+Appendix B is explicit: this session compares a prompted classifier against the
+gradient boosting model from node 2.6 on the same data, and **the intended
+conclusion is often that the LLM is the wrong tool**.
+
+That conclusion is unfashionable and it is frequently correct. The point of the
+node is not to be contrarian — it is that "should we use an LLM here" is an
+empirical question with a cheap answer, and almost nobody measures it.
+
+## The session
+
+[`fraud-transactions.csv`](/datasets/fraud-transactions.csv). Same task as nodes
+2.4 and 2.6: is this transaction fraudulent.
+
+### 1. Fix the evaluation set first
+
+500 transactions, fixed seed, stratified so it contains a reasonable number of
+frauds. **The same 500 for every run.** Node 1.4 explains why choosing the
+evaluation set after seeing results is a way of fooling yourself.
+
+### 2. Score the model you already have
+
+Run node 2.6's gradient boosting model on those 500 rows. Record PR AUC, recall
+at your chosen threshold, and — this is the part people skip — the cost and
+latency per prediction. Both are effectively zero, and writing down "effectively
+zero" is what makes the comparison legible later.
+
+### 3. Build the prompted classifier
+
+Give the LLM **exactly** the features the boosting model gets. Not the raw row
+with extra columns, not a helpful summary — the same information.
+
+```
+Transaction:
+  amount: 412.50
+  hour: 3
+  country: BR
+  category: gambling
+  distinct cards on device in last 24h: 4
+
+Is this fraudulent? Answer with exactly one word: FRAUD or LEGITIMATE.
+```
+
+Read your rendered prompt before running 500 of them. Giving the LLM more than
+the baseline gets is the most common way this comparison is rigged, usually by
+accident.
+
+### 4. Measure everything
+
+| | Boosting | LLM |
+|---|---|---|
+| PR AUC / accuracy | | |
+| Recall | | |
+| Cost per 1,000 classifications | | |
+| Median latency | | |
+| Reproducible | yes | see below |
+
+The cost ratio should be at least 100x. Compute it explicitly — the checklist
+asks for the number, because "more expensive" and "four hundred times more
+expensive" lead to different decisions.
+
+### 5. Temperature
+
+Run the same 500 twice at temperature 0. Then once at temperature 1 and count
+how many predictions changed.
+
+Question 3 asks what temperature does and why even zero is not a guarantee of
+identical output.
+
+### 6. Handle the failures honestly
+
+Some responses will not parse. Constrain the output, validate, retry once, and
+**count the ones that still fail**.
+
+Do not drop them. Question 4 explains why that is not a tidy-up.
+
+## What LLMs are actually good at here
+
+The comparison above is deliberately unfavourable — a task with fifty thousand
+labelled examples and a fixed schema is the boosting model's home ground.
+
+Where the ordering reverses:
+
+| Task shape | Better tool |
+|---|---|
+| Labelled data, fixed schema, high volume | classical model |
+| No labels, unstructured input | LLM |
+| Categories that change weekly | LLM |
+| Latency budget under 50ms | classical model |
+| Output is prose, or a judgement about prose | LLM |
+| Millions of predictions per day | classical model |
+| The alternative is that nobody does the task | LLM |
+
+A common and good pattern is to use both: the LLM labels a few thousand examples,
+and a small fast model trains on those labels.
+
+## Practical things worth knowing
+
+**Cost is per token, both directions.** Long prompts cost on every call. If your
+prompt has a large fixed prefix, prompt caching can cut that substantially.
+
+**Batch APIs exist** and are typically much cheaper for work that is not
+latency-sensitive — which a 500-row evaluation is not.
+
+**Structured output beats parsing prose.** Use the provider's schema or tool-use
+mode rather than asking politely for JSON and hoping.
+
+**Pin the model version.** "Latest" changes underneath you, and then your
+evaluation numbers describe a model you no longer have. Node 6.3's argument
+applies here.
+
+## Common walls
+
+**Your LLM classifier scores near zero recall.** It is probably answering
+"LEGITIMATE" for almost everything, which is node 2.4's majority-class classifier
+in a new outfit. Check the prediction distribution before concluding anything.
+
+**Cost is higher than you expected.** Count your tokens. A verbose system prompt
+repeated 500 times adds up, and this is exactly the arithmetic worth doing before
+a production rollout rather than after.
+
+**Rate limits.** Add backoff, and use the batch API for evaluation runs.
+
+**You are tempted to improve the prompt until it wins.** That is a legitimate
+thing to try, and it must be done on a separate development split — otherwise you
+are tuning on your test set, which is node 2.3's lesson in a new place. Node 5.4
+is entirely about doing this properly.
+
+## Before you move on
+
+Node 5.2 is about retrieval, which is where node 4.6's embeddings become
+infrastructure. Nodes 5.2 and 5.3 together build the system that node 5.4 then
+makes you evaluate honestly — and that evaluation is the hardest part.

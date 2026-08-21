@@ -1,0 +1,232 @@
+---
+id: "5.2"
+phase: 5
+order_index: 2
+title: "Vector search and retrieval"
+slug: "vector-search"
+prereqs: ["4.6"]
+status: "published"
+goal: "You can build a retrieval index and measure its recall, rather than assuming the results look fine."
+resources:
+  primary:
+    name: "Pinecone Learn — What is a Vector Database"
+    url: "https://www.pinecone.io/learn/vector-database/"
+    type: "article"
+    cost: "free"
+  alt:
+    name: "FAISS wiki — Guidelines to choose an index"
+    url: "https://github.com/facebookresearch/faiss/wiki"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Build a retrieval index over a corpus you choose, hand-label 30 query-document pairs, and measure recall@k properly. Then compare dense embeddings against plain keyword search and find the queries where BM25 wins — there will be some."
+  difficulty: "medium"
+checklist:
+  - "My corpus has at least 500 chunks and I recorded the chunk size and overlap I used"
+  - "I hand-labelled at least 30 query-document pairs, deciding relevance myself rather than accepting the system's own ranking"
+  - "I computed recall@1, recall@5 and recall@10 for dense retrieval, and all three are different numbers"
+  - "I computed the same three for BM25 keyword search on the same 30 queries"
+  - "I found at least 3 queries where BM25 beats dense retrieval, and I can say what those queries have in common"
+  - "I found at least 3 queries where dense retrieval beats BM25, and can say what those have in common"
+  - "My hybrid of the two scores at least as well as the better of them individually on recall@5"
+  - "I measured brute-force exact search against an approximate index and recorded both the recall difference and the speed difference"
+  - "I re-chunked the corpus at a different chunk size and recorded how recall@5 changed — it did change"
+  - "I found at least one query where the top result is on-topic and contradicts the query, connecting to what I found in node 4.6"
+questions:
+  - prompt: "You found queries where BM25 beats dense retrieval. Characterise those queries, and explain what keyword search does that embeddings cannot."
+    answer_key: >-
+      They are queries containing rare exact tokens: product codes, error
+      identifiers, version numbers, surnames, API method names, acronyms.
+      BM25 matches terms literally and weights them by inverse document
+      frequency, so a token appearing in three documents out of ten thousand is
+      an extremely strong signal and the right document is retrieved with
+      certainty. A dense embedding compresses the whole chunk into a few hundred
+      dimensions, and a rare token contributes only a small nudge to that vector —
+      it is not represented distinctly enough to dominate. Worse, an unfamiliar
+      token may be split into subword pieces the model has no useful
+      representation for. So dense retrieval reliably fails on exactly the queries
+      where the user knows precisely what they want and has typed it. Embeddings
+      win in the complementary case, where the user's words and the document's
+      words differ but the meaning matches — synonyms, paraphrases, a question
+      phrased differently from the answer. This complementarity is why hybrid
+      retrieval is the default in serious systems rather than a refinement.
+  - prompt: "Recall@1, recall@5 and recall@10 gave you three different numbers. Explain what each measures and which one your downstream system actually cares about."
+    answer_key: >-
+      Recall@k is the fraction of queries for which a relevant document appears
+      somewhere in the top k results. Recall@1 asks whether the single best guess
+      is right, which matters when only one result is shown or used. Recall@10
+      asks whether the answer is anywhere in a page of results, which is a much
+      easier bar and is what matters when a human will scan them. The one your
+      system cares about is determined by how many results get passed on. For a
+      RAG pipeline that puts five chunks into the context window, recall@5 is
+      the number that bounds the whole system: if the answer is not in those five
+      chunks, no amount of generation quality can recover it, and node 5.3's error
+      attribution depends on knowing that boundary. Reporting recall@10 for a
+      system that uses five chunks is a common and quiet form of overstating.
+      Precision matters too, since irrelevant chunks consume context and can
+      actively mislead the generator, which is why the k you choose is a real
+      trade-off rather than "as many as fit".
+  - prompt: "Re-chunking changed your recall. Explain the trade-off chunk size represents, and say what you would do if a single answer spans two chunks."
+    answer_key: >-
+      Small chunks are precisely targeted — the embedding represents one idea, so
+      matching is sharp and the retrieved text is dense in relevant content — but
+      they lose context, and a chunk that says "this is not recommended" without
+      naming what "this" is cannot be interpreted alone. Large chunks preserve
+      context but dilute the embedding: a chunk covering five topics has a vector
+      that is the average of five things and is a strong match for none of them,
+      so recall drops for specific queries. The trade-off is between precision of
+      matching and sufficiency of context. When an answer spans two chunks, the
+      standard remedies are overlap, so consecutive chunks share some text and
+      neither is truncated mid-idea; retrieving neighbours automatically, by
+      fetching the chunks adjacent to any hit; chunking on document structure such
+      as headings or paragraphs rather than on a fixed character count; or
+      indexing small chunks for matching while returning their larger parent
+      section for context, which gets both properties and is usually the best
+      answer. Chunking is underrated as a lever — it routinely matters more than
+      the choice of embedding model.
+  - prompt: "Approximate search was faster and slightly less accurate than brute force. Explain what the approximation gives up, and say at what corpus size you would switch."
+    answer_key: >-
+      Exact search compares the query against every vector, so it is guaranteed to
+      find the true nearest neighbours and costs time linear in the corpus size.
+      Approximate methods build a structure — an HNSW graph, an inverted file with
+      clustering, or product quantisation — that lets a query examine only a small
+      fraction of the vectors, which turns linear cost into something closer to
+      logarithmic at the price of occasionally missing a true neighbour. The loss
+      is usually very small, a percent or two of recall at reasonable settings,
+      and it is tunable: the parameters trade recall against latency continuously.
+      When to switch: below roughly ten thousand vectors, brute force with numpy
+      is fast enough that the added complexity is not worth it, and it has the
+      considerable advantage of being obviously correct. Between ten thousand and
+      a million, an approximate index is worthwhile and the recall cost is
+      negligible. Above that it is mandatory. The important discipline is to
+      measure the recall loss against brute force on your own data before
+      trusting the index, because the published benchmarks were measured on
+      somebody else's distribution.
+reflection_prompt: "You hand-labelled 30 pairs. How often did you disagree with yourself about whether a document was relevant, and what does that suggest about evaluating retrieval at scale?"
+struggle_signals:
+  - "learner evaluates retrieval by reading the results and nodding"
+  - "learner never compares against a keyword baseline"
+  - "learner treats chunk size as an implementation detail"
+  - "learner reports recall@10 for a system that uses 5 chunks"
+---
+
+## Why this node exists
+
+Retrieval is the part of a RAG system that determines its ceiling. If the right
+document is not retrieved, nothing downstream can recover — and node 5.3 asks you
+to attribute failures to retrieval or generation, which is impossible without a
+retrieval number you trust.
+
+It is also where "it looks fine" does the most damage, because retrieval results
+usually do look fine. They are on topic. Being on topic is not the same as
+containing the answer, and node 4.6 already showed you a system that scores 0.8
+similarity on a contradiction.
+
+## The session
+
+Pick a corpus you can judge relevance in: your own notes, a documentation site,
+a set of papers, this roadmap's own content. At least 500 chunks. You must be
+able to tell whether a result is relevant, which rules out a domain you do not
+know.
+
+### 1. Chunk, embed, index
+
+```python
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")     # 384-d, from node 4.6
+```
+
+Record your chunk size and overlap. They are parameters, not details.
+
+Start with brute force — it is a matrix multiply, it is obviously correct, and at
+500 chunks it is instant:
+
+```python
+scores = embeddings @ query_vector          # normalized, so this is cosine
+top_k = np.argsort(-scores)[:k]
+```
+
+### 2. Build an evaluation set by hand
+
+**30 query-document pairs, judged by you.**
+
+Write realistic queries, run them, and mark which returned chunks are actually
+relevant. Where nothing relevant came back, find the right chunk yourself and
+record it.
+
+This is tedious and it is the node. A retrieval system evaluated on its own
+output is not evaluated.
+
+### 3. Recall at three values of k
+
+| | Dense | BM25 | Hybrid |
+|---|---|---|---|
+| recall@1 | | | |
+| recall@5 | | | |
+| recall@10 | | | |
+
+`rank_bm25` gives you keyword search in three lines. Run it on the same 30
+queries.
+
+### 4. Find where each one wins
+
+Three queries where BM25 beats dense. Three where dense beats BM25.
+
+They will have obvious characters once you look: exact rare tokens against
+paraphrase. Question 1 asks you to name them.
+
+### 5. Hybrid
+
+Combine the two rankings — reciprocal rank fusion is the standard and is about
+five lines:
+
+```python
+score(doc) = sum over rankers of 1 / (60 + rank_in_that_ranker)
+```
+
+It should match or beat the better individual method. This is why production
+retrieval is nearly always hybrid.
+
+### 6. Chunk size, again
+
+Re-chunk at half and double your original size, re-index, re-measure recall@5.
+
+It will move. Question 3 asks what the trade-off is.
+
+### 7. Approximate versus exact
+
+Build a FAISS or hnswlib index. Measure recall against your brute-force results
+and the speed difference.
+
+At 500 chunks the speed difference is meaningless and the recall difference is
+the interesting part. Question 4 asks when the trade flips.
+
+### 8. Find a confident wrong answer
+
+At least one query whose top result is on-topic and contradicts the query. Node
+4.6 told you where to look: negations and antonyms.
+
+That result is what node 5.3's generator will be handed, and it is the reason RAG
+systems produce confidently wrong answers.
+
+## Common walls
+
+**Recall@1 equals recall@10.** Your queries are too easy, or too close to the
+document text. Write queries the way a user would, not by copying phrases out of
+the corpus.
+
+**BM25 wins everywhere.** Your queries are all keyword-shaped. Write some
+question-shaped ones.
+
+**Your embeddings do not fit in memory.** 500 chunks at 384 dimensions is 750 KB.
+If you are struggling, you are storing something else — probably the text — in
+the same array.
+
+**Everything scores above 0.7 cosine.** Normal, per node 4.6. Rankings matter,
+absolute values do not.
+
+## Before you move on
+
+Node 5.3 assembles retrieval and generation into a system, and the first thing it
+asks is which component a given failure belongs to. The recall numbers you just
+measured are what make that question answerable.

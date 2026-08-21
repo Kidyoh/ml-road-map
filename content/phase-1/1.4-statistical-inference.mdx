@@ -1,0 +1,240 @@
+---
+id: "1.4"
+phase: 1
+order_index: 4
+title: "Statistical inference and the p-value trap"
+slug: "statistical-inference"
+prereqs: ["1.3"]
+status: "published"
+goal: "You can explain what a p-value does and does not tell you, having watched yourself manufacture false positives on purpose."
+resources:
+  primary:
+    name: "Statistical Inference for Data Science — Brian Caffo, chapters 6 to 10"
+    url: "https://leanpub.com/LittleInferenceBook/read"
+    type: "book"
+    cost: "free"
+  alt:
+    name: "Greenland et al — Statistical tests, P values, confidence intervals and power: a guide to misinterpretations"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4877414/"
+    type: "article"
+    cost: "free"
+session:
+  brief: "Run 100 A/A tests — experiments where both groups are drawn from the same distribution and there is definitionally no effect — and count how many come back significant. Then p-hack a null result into a publishable one, on purpose, and write down every move you made."
+  difficulty: "medium"
+checklist:
+  - "My 100 A/A tests at alpha = 0.05 produced between 1 and 12 false positives, and I can say why the answer is not exactly 5"
+  - "Running the same 100 A/A tests with 10 different seeds, my false-positive counts average between 3 and 7"
+  - "With 10,000 A/A tests my false-positive rate is within 0.6 percentage points of 5.0%"
+  - "My p-value histogram from the A/A tests is visibly flat — roughly 5% of p-values in every 0.05-wide bin"
+  - "Testing 20 independent metrics at alpha = 0.05, I found at least one 'significant' result, and I computed the true probability of that as 1 - 0.95^20 = 0.6415"
+  - "My p-hacked result reached p < 0.05, and I wrote down every decision I made to get there — subgroup, metric, stopping point"
+  - "After Bonferroni correction at alpha/20 = 0.0025, my p-hacked result is no longer significant"
+  - "My 95% confidence interval simulation contained the true parameter in 95% of runs, plus or minus 1 percentage point over 10,000 runs"
+  - "I stopped an A/A test early whenever it looked significant, and my false-positive rate rose above 15% — far above the 5% I nominally chose"
+questions:
+  - prompt: "Your A/A tests produced roughly 5 false positives out of 100. State precisely what a p-value of 0.03 means in that setting, and then state three things people commonly believe it means that it does not."
+    answer_key: >-
+      A p-value of 0.03 means: if there were genuinely no difference between the
+      groups, and I repeated this experiment many times, then 3% of those
+      repetitions would produce a test statistic at least as extreme as the one I
+      just saw. It is a statement about the data given a hypothesis, and nothing
+      else. What it does not mean, in rough order of how often people get it
+      wrong. First, it is not the probability that the null hypothesis is true —
+      that would be a statement about the hypothesis given the data, which is the
+      conditional the other way round and requires a prior to compute. Second, it
+      is not the probability that your result is a fluke; it is computed by
+      assuming your result is a fluke. Third, it says nothing about effect size —
+      with a large enough sample, a difference too small to care about will give
+      you p < 0.001, and with a small sample a large real effect can give you p =
+      0.4. A fourth one worth adding: p = 0.049 and p = 0.051 are not different in
+      any meaningful way, and treating 0.05 as a threshold that separates real from
+      unreal is the root of most of the trouble.
+  - prompt: "You p-hacked a null result into significance. Walk through what you did, and explain why each individual step felt reasonable at the time."
+    answer_key: >-
+      The steps are usually some combination of: slicing into subgroups until one
+      of them shows a difference, trying several outcome metrics and reporting the
+      one that worked, adding or dropping a covariate, excluding outliers after
+      seeing which direction they pushed, and peeking at the data repeatedly and
+      stopping the moment it crossed the threshold. Each is individually
+      defensible, which is precisely the problem. Checking whether an effect is
+      concentrated in new users is a sensible hypothesis. Excluding a customer who
+      spent a hundred thousand dollars is standard practice. Stopping an
+      experiment once you are confident saves money. None of them feels like
+      cheating. What makes them cheating collectively is that the decisions were
+      made after seeing the data and were influenced by it, so the effective
+      number of hypotheses tested is far larger than one — and the reported p-value
+      is computed as though only one test happened. The defence is not to avoid
+      these decisions but to make them before the data arrives, write them down,
+      and report every test you ran rather than the one that survived.
+  - prompt: "Stopping early whenever the result looked significant pushed your false-positive rate above 15%. Explain the mechanism, and say what you would have to do instead to stop early legitimately."
+    answer_key: >-
+      A p-value fluctuates as data accumulates — it wanders. Under the null it
+      will, purely by chance, dip below 0.05 at some point during a long run with
+      much higher probability than 5%. If your stopping rule is "stop when it
+      dips", you are not running one test at your chosen alpha, you are running a
+      test at every peek and taking the best result, so the true error rate is
+      whatever the maximum of that wandering path reaches. Peek often enough and
+      it approaches certainty. To stop early legitimately you need a method that
+      accounts for the looking: group sequential designs with alpha-spending
+      functions such as O'Brien-Fleming, which allocate a stricter threshold to
+      early looks and spend the remaining error budget later; or always-valid
+      sequential methods based on likelihood ratios or confidence sequences, which
+      are constructed so that the guarantee holds at every moment regardless of
+      when you stop. The unifying idea is that the analysis has to know how many
+      times you intend to look.
+  - prompt: "Your 95% confidence intervals contained the true value 95% of the time. State precisely what the 95% refers to, and explain why 'there is a 95% probability the true value is in this interval' is the wrong reading."
+    answer_key: >-
+      The 95% is a property of the procedure, not of any particular interval. It
+      says that if you repeat the whole process — sample, compute the interval —
+      many times, 95% of the intervals produced will contain the true parameter.
+      That is exactly what your simulation measured. Once you have a specific
+      interval in hand, the true parameter either is or is not inside it; there is
+      no randomness left to have a probability about, under the frequentist
+      framing where the parameter is a fixed unknown constant rather than a random
+      variable. The statement that there is a 95% probability the parameter lies
+      in this particular interval is a Bayesian claim, and it is a perfectly good
+      one — but it requires a prior and describes a credible interval, which is a
+      different object that often happens to look similar. In practice the
+      distinction rarely changes a decision, and the reason to keep it straight is
+      that it stops you from making the same error in cases where it does matter,
+      such as reading a p-value as the probability of a hypothesis.
+reflection_prompt: "This node exists to inoculate you against p-hacking. Think about the last time you looked at data hoping for a particular answer. What would you have done differently, and would you have noticed you were doing it?"
+struggle_signals:
+  - "learner is surprised that A/A tests produce significant results at all"
+  - "learner reads a p-value as the probability the null is true"
+  - "learner reports the significant subgroup without mentioning the others tested"
+  - "learner treats 0.05 as a hard boundary between real and unreal"
+  - "learner cannot explain why peeking inflates the error rate"
+---
+
+## Why this node exists
+
+Appendix B of the build plan says it plainly: this node exists to inoculate
+against p-hacking, so **the reflection prompt matters more than the code**.
+
+Everything else in this roadmap is about making models work. This node is about
+the machinery you use to decide whether something worked at all — and that
+machinery is easy to fool, mostly by accident, mostly by people acting in good
+faith.
+
+You will not learn this from being told. You will learn it from watching yourself
+generate a statistically significant result from data you personally created to
+have no effect in it.
+
+## The session
+
+### 1. A hundred A/A tests
+
+An A/A test is an A/B test where both arms are identical. Any difference you find
+is definitionally noise.
+
+```python
+import numpy as np
+from scipy.stats import ttest_ind
+
+rng = np.random.default_rng(1404)
+false_positives = 0
+pvalues = []
+
+for _ in range(100):
+    a = rng.normal(0, 1, 500)
+    b = rng.normal(0, 1, 500)      # same distribution. no effect exists.
+    p = ttest_ind(a, b).pvalue
+    pvalues.append(p)
+    if p < 0.05:
+        false_positives += 1
+
+print(false_positives)
+```
+
+With that seed you should get 7. **Not 5.** The expected value is 5; any given run
+of 100 is a Binomial(100, 0.05) draw, so anything from about 1 to 12 is
+unremarkable. Run it with ten seeds and watch it move.
+
+Then run 10,000 and watch the rate settle to within a fraction of a point of 5%.
+
+### 2. The flat histogram
+
+Plot your p-values from the A/A tests. Under the null hypothesis, p-values are
+**uniformly distributed** — 5% of them below 0.05, 5% between 0.05 and 0.10, and
+so on.
+
+That is what "5% false positive rate" actually is: not a special property of the
+0.05 threshold, but a consequence of the p-value being uniform when nothing is
+going on. Seeing the flat histogram makes alpha stop being magic.
+
+### 3. Twenty metrics
+
+Generate 20 independent metrics, all null. Test each at 0.05.
+
+The probability that at least one comes back significant is `1 - 0.95**20 =
+0.6415`. Nearly two times in three, you will find something. Confirm it by
+simulation.
+
+| Tests | P(at least one "significant") |
+|---|---|
+| 1 | 0.0500 |
+| 5 | 0.2262 |
+| 10 | 0.4013 |
+| 20 | 0.6415 |
+
+Then apply a Bonferroni correction — test each at 0.05/20 = 0.0025 — and watch
+the false positives disappear, along with most of your power.
+
+### 4. P-hack on purpose
+
+Generate one dataset with no effect. Now get p < 0.05 out of it. Legitimate moves
+only, in the sense that every one of them appears in published papers:
+
+- Split by a covariate and test within subgroups
+- Try three different outcome metrics
+- Try with and without outlier removal
+- Add the data one batch at a time and stop when it crosses
+
+**Write down every single thing you tried.** That list is the deliverable. The
+number of things on it is the number of tests you actually ran, and it is the
+number your p-value should have been corrected for.
+
+### 5. Peeking
+
+Run an A/A test where you check significance after every 10 new observations and
+stop the moment `p < 0.05`. Repeat 200 times, count how often you stopped.
+
+It will be well above 15%. You chose 5%.
+
+## What a p-value is, in one box
+
+> If there were no effect, how surprising would data like this be?
+
+That is all. It is a statement about data under an assumption. It is not the
+probability the assumption is false, it is not the probability you are wrong, and
+it contains no information at all about how big the effect is.
+
+For effect size, report a confidence interval. `p < 0.05` with an interval of
+[0.01%, 0.02%] is a real effect that nobody should act on.
+
+## Common walls
+
+**You got exactly 5 and think that confirms the theory.** It is consistent with
+it, but so is 2 and so is 9. Run more seeds. The whole point of this node is not
+mistaking one sample for a rate.
+
+**Your p-value histogram is not flat.** If it slopes toward zero you have
+accidentally introduced a real effect — check that both arms use the same
+parameters. If it clusters oddly you may be using a test whose assumptions your
+simulated data violates, which is itself worth understanding.
+
+**Bonferroni feels too harsh.** It is, deliberately — it controls the probability
+of *any* false positive, which is stricter than most situations need.
+Benjamini-Hochberg controls the false discovery rate instead and is what people
+actually use when testing hundreds of hypotheses. Try both.
+
+**Your confidence interval coverage is 90%, not 95%.** You are probably using the
+normal quantile 1.96 with a small sample where the t-distribution is correct, or
+computing the standard error with the wrong `ddof`.
+
+## Before you move on
+
+Node 2.3 is the same lesson wearing different clothes: a number that looks
+excellent, produced by a procedure that was never entitled to produce it. Coming
+to that node already suspicious of good news is the point of arriving here first.

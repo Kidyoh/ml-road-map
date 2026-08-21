@@ -1,0 +1,208 @@
+---
+id: "1.3"
+phase: 1
+order_index: 3
+title: "Probability and distributions"
+slug: "probability-and-distributions"
+prereqs: ["0.2"]
+status: "published"
+goal: "You can pick the distribution that matches a data-generating process, and say what it assumes that your data might violate."
+resources:
+  primary:
+    name: "Seeing Theory — Basic Probability through Probability Distributions"
+    url: "https://seeing-theory.brown.edu/"
+    type: "course"
+    cost: "free"
+  alt:
+    name: "Harvard Stat 110 — Blitzstein, lectures 1 to 6"
+    url: "https://www.youtube.com/playlist?list=PL2SOU6wwxB0uwwH80KTQ6ht66KWxbzTIo"
+    type: "video"
+    cost: "free"
+session:
+  brief: "Simulate five processes, match each to the distribution that describes it, and then break each one by violating its assumptions. Finish by watching the central limit theorem work — and then watch it fail."
+  difficulty: "medium"
+checklist:
+  - "My simulated Binomial(20, 0.3) over 200,000 draws has mean within 0.02 of 6.0 and variance within 0.05 of 4.20"
+  - "My simulated P(X <= 4) for Binomial(20, 0.3) is within 0.005 of the exact 0.2375 from `scipy.stats.binom.cdf`"
+  - "For Poisson(3), my simulated P(X = 0) is within 0.005 of 0.0498 and P(X <= 1) within 0.005 of 0.1991"
+  - "My standard normal draws put 68.27% within one standard deviation and 95.00% within 1.96 — both within 0.5 percentage points"
+  - "Averaging 30 uniform draws 100,000 times gives a histogram that passes a normality check, and the sample mean of those averages is within 0.005 of 0.5"
+  - "Averaging 30 Cauchy draws 100,000 times does NOT converge — my histogram still has huge tails and the sample mean changed by more than 1.0 between two runs with different seeds"
+  - "I can state, for each of the five distributions, one concrete real-world column that would violate its assumptions"
+  - "My exponential inter-arrival simulation produces event counts per unit time that match a Poisson with the same rate, to within 0.05 on the mean"
+questions:
+  - prompt: "The central limit theorem worked for uniform draws and failed for Cauchy draws. Explain what condition the Cauchy violates, and name a real dataset where you should worry about the same thing."
+    answer_key: >-
+      The central limit theorem requires the underlying distribution to have a
+      finite mean and finite variance. The Cauchy has neither — its tails are so
+      heavy that the integral defining the mean does not converge — so averaging
+      more samples does not stabilise anything. The average of n Cauchy draws is
+      itself Cauchy with the same spread, no matter how large n gets, which is why
+      your histogram never narrowed and your sample mean jumped between seeds.
+      Real data with this flavour: financial returns during a crisis, wealth and
+      income at the top of the distribution, file sizes, city populations, damages
+      in insurance claims, and time-to-resolution for support tickets where a few
+      cases run for years. In all of these the sample mean is unstable — it is
+      dominated by whether your sample happened to include one extreme value —
+      and confidence intervals built on normal assumptions are meaningless. The
+      practical defence is to look at the median and other quantiles, which stay
+      well behaved, and to plot the distribution before trusting any average.
+  - prompt: "You simulated exponential waiting times and got Poisson counts. Explain the relationship between those two distributions, and say what assumption both of them make that real event streams usually violate."
+    answer_key: >-
+      They are two views of the same process. If events arrive independently at a
+      constant average rate, then the number of events in a fixed window is
+      Poisson with mean equal to rate times window, and the gap between
+      consecutive events is Exponential with that same rate. Counting and waiting
+      are the same information described from different ends. The assumption both
+      make is that the rate is constant and the events are independent — that an
+      event happening now tells you nothing about when the next one comes. Real
+      event streams almost always break this. Website traffic has daily and weekly
+      cycles, so the rate is a function of time. Support tickets cluster because
+      one outage generates fifty of them. Purchases cluster because one customer
+      buys three times in a session. When events cluster, the observed variance
+      exceeds the Poisson mean — overdispersion — and the standard fix is a
+      negative binomial, or splitting the window so the rate is roughly constant
+      within each piece.
+  - prompt: "Someone hands you a column of data and asks which distribution to model it with. Describe how you would actually decide, and say why 'it looks normal in the histogram' is a weak reason."
+    answer_key: >-
+      Start from the process, not the picture. Ask what generated the number. Is
+      it a count of things that either happened or did not, out of a known number
+      of tries — that is binomial. A count of events in a window with no natural
+      upper bound — Poisson, or negative binomial if it clusters. A waiting time —
+      exponential or Weibull. A quantity that is a sum of many small independent
+      contributions — plausibly normal. A quantity that is a product of many
+      factors, or is bounded below by zero and skewed right — log-normal. A
+      proportion bounded in zero to one — beta. Knowing the mechanism narrows the
+      candidates before you look at any data. The histogram is a check on that
+      reasoning, not a substitute for it, and it is a weak check for three
+      reasons: a small sample looks roughly bell-shaped under many distributions,
+      the histogram says almost nothing about the tails, which is exactly where
+      the choice matters most, and bin width changes the apparent shape. If you do
+      want to test the fit, a QQ plot against the candidate is far more informative
+      than a histogram, because it shows tail behaviour directly.
+  - prompt: "Explain the difference between a probability density and a probability, for a continuous distribution. Then say what goes wrong if you forget it."
+    answer_key: >-
+      For a continuous variable the probability of any single exact value is zero
+      — there are uncountably many possible values, so no individual one can carry
+      positive mass. The density is not a probability; it is a probability per
+      unit of x, and you get an actual probability only by integrating it over an
+      interval. That is why a density can exceed 1: a distribution tightly
+      concentrated on a narrow range has a tall density, and the area under it
+      still comes to 1. What goes wrong if you forget: you interpret a likelihood
+      value as a probability and get confused when it exceeds one, or you compare
+      densities across variables with different units and conclude something
+      meaningless, since changing from metres to centimetres divides every density
+      by a hundred. In machine learning specifically, the log-likelihood a density
+      model reports is in nats per unit of x, so comparing two models is only
+      valid if they are modelling the same variable in the same units — a real
+      source of nonsense comparisons between generative models.
+reflection_prompt: "Which distribution did you find yourself wanting to use as a default, before this node? What does that default assume about the data, and where would that assumption have bitten you?"
+struggle_signals:
+  - "learner assumes everything is normal"
+  - "learner cannot distinguish a density from a probability"
+  - "learner picks a distribution by looking at a histogram rather than by reasoning about the process"
+  - "learner treats the central limit theorem as universal"
+---
+
+## Why this node exists
+
+Almost every model you will fit is a statement about a distribution. Linear
+regression assumes normally distributed errors with constant variance. Logistic
+regression models a Bernoulli. A loss function is usually a negative
+log-likelihood in disguise. When a model behaves badly, the reason is often that
+its distributional assumption does not match the data, and you cannot notice that
+if distributions are just names to you.
+
+This node is short on theory and long on simulation, because the fastest way to
+know what a distribution does is to generate a hundred thousand draws from it and
+look.
+
+## The session
+
+### 1. Five processes, five distributions
+
+For each, simulate it, then match it to the closed form and confirm the numbers.
+
+| Process | Distribution | Check against |
+|---|---|---|
+| 20 coin flips at p = 0.3, count heads | Binomial(20, 0.3) | mean 6.0, variance 4.20, P(X≤4) = 0.2375 |
+| Emails per hour, average 3 | Poisson(3) | P(X=0) = 0.0498, P(X≤1) = 0.1991 |
+| Gaps between those emails | Exponential(3) | mean 1/3 |
+| Heights in a population | Normal | 68.27% within 1σ, 95.00% within 1.96σ |
+| Something with monstrous tails | Cauchy | has no mean at all |
+
+Use `scipy.stats` for the exact values and your own `rng` for the simulation. The
+point is to watch them agree.
+
+### 2. Counting and waiting are the same thing
+
+Simulate exponential inter-arrival times with rate 3, accumulate them into a
+timeline, then count how many events fall in each unit interval.
+
+Those counts should be Poisson(3). Confirm the mean, and confirm that the
+variance is also about 3 — the Poisson's defining oddity is that its mean and
+variance are equal, which is exactly the property real clustered data violates.
+
+### 3. The central limit theorem, and its limits
+
+Draw 30 samples from `Uniform(0, 1)`, take the mean, repeat 100,000 times.
+Histogram the result. It is normal, centred at 0.5, despite nothing in the
+uniform being remotely bell-shaped. This is why the normal shows up everywhere.
+
+Now do exactly the same with `rng.standard_cauchy()`.
+
+It will not converge. Run it twice with different seeds and watch the sample mean
+move by more than 1.0. This is the most important twenty seconds of the node: the
+central limit theorem is a theorem with hypotheses, and heavy-tailed data
+violates them.
+
+### 4. Break each assumption
+
+For each of the five, name a real column that would violate it:
+
+- Binomial assumes a fixed number of independent trials with constant p. What
+  breaks it?
+- Poisson assumes a constant rate and independent events.
+- Exponential assumes memorylessness — the chance of an event in the next minute
+  does not depend on how long you have already waited.
+- Normal assumes symmetric, finite-variance, additive noise.
+
+The checklist asks for one concrete example each. This is the part that transfers.
+
+## A table worth keeping
+
+| If the quantity is... | Try | Watch out for |
+|---|---|---|
+| Successes out of n trials | Binomial | trials not independent |
+| Events per window, unbounded | Poisson | clustering → overdispersion |
+| Events per window, clustered | Negative binomial | |
+| Time until an event | Exponential, Weibull | non-constant hazard |
+| A sum of many small effects | Normal | heavy tails |
+| A product of many factors | Log-normal | |
+| A proportion in [0, 1] | Beta | mass exactly at 0 or 1 |
+| Counts with many zeros | Zero-inflated Poisson | |
+
+## Common walls
+
+**Your simulated variance is off by a factor of n/(n-1).** `np.var` defaults to
+the population variance and `pandas.Series.var` to the sample variance. At 200,000
+draws the difference is invisible; at 20 it is not.
+
+**Your Poisson simulation from exponential gaps has too few events in the last
+window.** You truncated the timeline mid-interval. Drop the final partial window.
+
+**Your Cauchy histogram is unreadable.** It has values in the thousands. Clip the
+x-range for display — but do not clip the data before computing the mean, or you
+will have quietly turned it into a distribution that does have one, and destroyed
+the entire lesson.
+
+**You cannot tell whether your CLT histogram is "normal enough".** Use a QQ plot
+against the normal rather than eyeballing the histogram. The tails are where the
+answer is, and the histogram is worst exactly there.
+
+## Before you move on
+
+Node 1.4 uses this directly: it asks you to run a hundred experiments where you
+know there is no effect, and count how often you find one anyway. That number is
+a property of the distribution of the test statistic, which is the thing you have
+just spent this node learning to reason about.

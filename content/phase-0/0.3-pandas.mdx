@@ -1,0 +1,189 @@
+---
+id: "0.3"
+phase: 0
+order_index: 3
+title: "Pandas"
+slug: "pandas"
+prereqs: ["0.2"]
+status: "published"
+goal: "You can take a CSV nobody cleaned, get it into a state you would stake a number on, and notice when a merge silently invents rows."
+resources:
+  primary:
+    name: "pandas User Guide — Indexing, Merge, and Working with text data"
+    url: "https://pandas.pydata.org/docs/user_guide/index.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "Python for Data Analysis, 3rd edition — chapters 7 and 8"
+    url: "https://wesmckinney.com/book/"
+    type: "book"
+    cost: "free"
+session:
+  brief: "Two CSVs that nobody cleaned. Mixed date formats, money stored as strings, whitespace in join keys, duplicate rows, and a dimension table with duplicated keys that will quietly inflate your row count on merge. Get to a clean dataframe and a total revenue figure you would defend."
+  dataset: "/datasets/messy-transactions.csv"
+  difficulty: "medium"
+checklist:
+  - "`pd.read_csv` on messy-transactions.csv gives me 8432 rows before I clean anything"
+  - "After dropping exact duplicate rows I have 8000 rows, and 432 were dropped"
+  - "After stripping whitespace from customer_id, `nunique()` on it is 900"
+  - "customers.csv has 1020 rows but only 900 distinct customer_id values"
+  - "A naive `transactions.merge(customers, on='customer_id', how='left')` on my 8000 deduped transactions returns 9071 rows, and I can point at which customers caused the extra 1071"
+  - "After fixing the merge my row count is back to exactly 8000"
+  - "Every value in order_date parses to a real datetime with zero NaT, and my min and max order dates both fall inside 2024"
+  - "The amount column is a float dtype, not object, and total revenue over the 8000 deduped transactions is 961769.21"
+  - "The channel column has exactly 3 distinct values after cleaning"
+  - "I wrote down the row count after every single step, and each change in the count was one I predicted before running the cell"
+questions:
+  - prompt: "Your merge turned 8,000 rows into 9,071. No error was raised, no warning printed. Explain the mechanism — what does a left merge do when the right-hand table has two rows with the same key — and describe the check you will run before every merge from now on to catch this in one line."
+    answer_key: >-
+      A merge is a cartesian product within each key group. For a given
+      customer_id, if the left table has 3 transactions and the right table has 2
+      rows for that customer, you get 3 times 2 equals 6 rows out. Pandas is doing
+      exactly what a SQL join does and has no way to know you assumed the right
+      table was one row per customer, so it says nothing. Here 120 customers have
+      2 rows each in the dimension table, and the 1,071 extra rows are the
+      transactions belonging to those 120 customers, counted a second time. The
+      one-line check is to assert the join key is unique on the side you are
+      joining to, before joining: `assert customers.customer_id.is_unique`. Pandas
+      also gives you `validate="m:1"` as a merge argument, which raises instead of
+      silently inflating — get in the habit of passing it every time. The fix
+      itself is a decision, not a mechanic: you must choose which of the two rows
+      per customer is correct, and that is a question about the data, not about
+      pandas.
+  - prompt: "Total revenue is 961,769.21 over 8,000 transactions. If you had skipped the deduplication step and summed all 8,432 rows instead, the number would have been higher — but by how much, and more importantly: would anything in the output have looked wrong to a reader who did not know the data?"
+    answer_key: >-
+      It would be higher by the sum of the 432 duplicated rows, roughly 5 percent
+      of the total, landing somewhere near 1.01 million. Nothing would look wrong.
+      That is the entire point. The number would be plausible, the dataframe would
+      have no nulls, every chart would render, and the figure would be repeated in
+      a deck and become the number the business believes. There is no error
+      message anywhere in this failure mode. The only defence is the discipline of
+      writing the row count down at each step and having a reason for every change
+      in it — which is why the checklist asks you to do that explicitly rather
+      than trusting you to notice. This same failure, applied to a train/test
+      split rather than a revenue total, is what node 2.3 is about.
+  - prompt: "The order_date column mixes four formats, one of which is dd/mm/yyyy. What specifically goes wrong if you let pandas infer the format per row, and how would you have detected the damage if nobody had told you the format was day-first?"
+    answer_key: >-
+      Row-by-row inference makes each date independently ambiguous: 06/03/2024 is
+      valid as both the 6th of March and the 3rd of June, so pandas picks one, and
+      for dates where the day exceeds 12 it is forced into the other reading. You
+      end up with a column where some dates are day-first and some are month-first
+      and nothing distinguishes them afterwards. Detection is by distribution, not
+      by inspection: plot a histogram of the parsed day-of-month, or of the month.
+      If the format is being mixed up, you see a discontinuity at 12 — the first
+      twelve values of one field are inflated because they absorbed the values
+      that should have gone to the other. Any real date column should be roughly
+      uniform across days of the month; a cliff at 12 is a parsing bug with a
+      signature. The fix is to parse each format explicitly rather than letting
+      anything infer, and to assert afterwards that no values are NaT.
+reflection_prompt: "You were told in advance that the merge would inflate the row count. If you had not been told, at what point in your analysis would you have found out — and be honest, is there a version of this where you never find out?"
+struggle_signals:
+  - "learner accepts the post-merge row count without noticing it changed"
+  - "learner drops rows with dropna() to make an error go away"
+  - "learner reports total revenue without ever stating which row count it is over"
+  - "learner uses errors='coerce' on dates and never checks how many became NaT"
+---
+
+## Why this node exists
+
+Node 0.2 gave you fast operations over clean arrays. Real data is not clean, and
+the gap between "I know the pandas API" and "I can be trusted with a CSV" is
+almost entirely about noticing when something silently went wrong.
+
+Everything in this dataset is a real failure that has shipped to a real dashboard
+somewhere. None of it raises an exception.
+
+## The data
+
+Two files:
+
+- [`messy-transactions.csv`](/datasets/messy-transactions.csv) — 8,432 rows of
+  transactions, one row per transaction, except where it is not.
+- [`customers.csv`](/datasets/customers.csv) — a customer dimension table with
+  segment and region.
+
+What is wrong with them, stated plainly so you spend your time fixing rather than
+guessing:
+
+| Problem | Where |
+|---|---|
+| Exact duplicate rows | `messy-transactions.csv` |
+| Money stored as strings, three different ways | `amount` |
+| Leading and trailing whitespace in a join key | `customer_id` |
+| Four date formats in one column | `order_date` |
+| Inconsistent casing and stray spaces | `channel` |
+| Missing values written five different ways | `quantity` |
+| Duplicated keys in a dimension table | `customers.csv` |
+
+The slash-separated dates are **day first**: `06/03/2024` is the 6th of March. You
+are being told this because inferring it is a different lesson; question 3 asks you
+what you would have done without being told.
+
+Missing values in `quantity` appear as empty strings, `NA`, `N/A`, `null` and a
+field containing only spaces. `pd.read_csv` recognises some of these and not
+others out of the box.
+
+## The session
+
+Get from the raw files to a dataframe you would put your name on, and report total
+revenue.
+
+Do it in this order and **write down the row count after every step**:
+
+1. Load. Row count?
+2. Drop exact duplicate rows. Row count? Did it change by the amount you expected?
+3. Strip whitespace from `customer_id`. How many distinct customers now — and how
+   many before?
+4. Parse `amount` into a real float. Assert the dtype afterwards.
+5. Parse `order_date`. Assert zero `NaT` afterwards.
+6. Normalise `channel`. How many distinct values?
+7. Merge in `customers.csv`. **Row count?**
+8. Fix whatever step 7 did.
+9. Sum `amount`.
+
+Step 7 is the one. Everything before it is tedium; step 7 is the node.
+
+## The discipline being taught
+
+```python
+def check(df, label, expected_rows=None):
+    print(f"{label:<28} {len(df):>7,} rows")
+    if expected_rows is not None:
+        assert len(df) == expected_rows, f"expected {expected_rows}, got {len(df)}"
+    return df
+```
+
+Call it after every step. Predict the number **before** you run the cell. Being
+surprised is the signal — if you only look at the count after the fact, you will
+rationalise whatever it says.
+
+This is the same habit that catches leakage in node 2.3, and the same habit that
+catches a broken preprocessing step in production three years from now. It costs
+one line.
+
+## Common walls
+
+**Your deduped count is not 8,000.** Check whether you deduplicated on the full row
+or on `transaction_id`. Here they give the same answer, which is a coincidence
+worth understanding — the duplicated rows are verbatim copies. In most real data
+they differ, and which one you want is a question about what a duplicate means in
+your domain.
+
+**Total revenue is slightly off.** Either you are summing before deduplication, or
+after the merge inflated the rows, or your string-to-float parse silently dropped
+the currency-formatted values. Check `df.amount.isna().sum()` and check your row
+count.
+
+**You cannot get the channel count down to 3.** Strip, then lowercase, in that
+order. `" WEB "` and `"Web"` and `"web"` are one value.
+
+**The merge count is right but the totals are wrong.** You may have deduplicated
+`customers.csv` with `drop_duplicates()`, which does nothing here — the duplicated
+customer rows differ in `region`, so they are not exact duplicates. You have to
+decide which row wins. There is no automatic answer, and noticing that there is no
+automatic answer is the point.
+
+## Before you move on
+
+Node 0.5 will ask you to plot this data, and a plot made from a dataframe with
+1,071 phantom rows is a plot that lies confidently. Get the row count right first.

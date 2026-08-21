@@ -1,0 +1,228 @@
+---
+id: "4.6"
+phase: 4
+order_index: 6
+title: "Embeddings"
+slug: "embeddings"
+prereqs: ["4.5"]
+status: "published"
+goal: "You can produce embeddings, inspect what they encode, and find a case where the similarity they report is misleading."
+resources:
+  primary:
+    name: "The Illustrated Word2vec — Jay Alammar"
+    url: "https://jalammar.github.io/illustrated-word2vec/"
+    type: "article"
+    cost: "free"
+  alt:
+    name: "Sentence Transformers — documentation and pretrained models"
+    url: "https://www.sbert.net/"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Embed a few hundred sentences, verify that similar ones land near each other, then go hunting for pairs where cosine similarity is high and the meaning is opposite. Finish by finding a bias in the embedding space that nobody put there on purpose."
+  difficulty: "medium"
+checklist:
+  - "My sentence embeddings from all-MiniLM-L6-v2 have exactly 384 dimensions, and I verified the shape rather than assuming it"
+  - "Cosine similarity between a sentence and itself is 1.0 to within 1e-6"
+  - "For at least 10 hand-written pairs, semantically similar sentences score higher cosine similarity than unrelated ones"
+  - "I found at least 2 pairs where cosine similarity is above 0.8 but the meanings are contradictory — I wrote both pairs down"
+  - "I compared cosine similarity against Euclidean distance on normalized embeddings and confirmed they induce the same ranking"
+  - "I verified that the embeddings are normalized (or normalized them myself) and can state why that matters for cosine similarity"
+  - "I tested at least one analogy of the form a - b + c and recorded whether the nearest neighbour was what I expected"
+  - "I found at least one association in the embedding space that reflects a social bias, and recorded the similarity scores that show it"
+  - "I embedded the same text with two different models and confirmed the vectors are not comparable across models"
+questions:
+  - prompt: "You found sentence pairs with cosine similarity above 0.8 and contradictory meanings. Give one, and explain what the embedding is actually measuring."
+    answer_key: >-
+      A reliable example is a sentence and its negation — "the film was excellent"
+      against "the film was not excellent" — which share almost every token, the
+      same topic, the same register and the same syntactic frame, and differ by
+      one word that flips the meaning entirely. Another is a pair of opposites in
+      the same category, such as "the price went up sharply" and "the price went
+      down sharply". What the embedding measures is something closer to topical
+      and distributional similarity than to meaning: it encodes what a passage is
+      about, in what style, with what vocabulary, because that is what the
+      training objective rewards. Negation and antonymy are systematically
+      underweighted, since words that are opposites appear in nearly identical
+      contexts and the training signal therefore pushes them together rather than
+      apart. The practical consequence for node 5.2 is direct: a retrieval system
+      built on cosine similarity will happily return a passage that contradicts
+      the query, because it is exactly on topic.
+  - prompt: "Explain why cosine similarity rather than Euclidean distance is the default for embeddings, and say when that choice stops being harmless."
+    answer_key: >-
+      Cosine similarity measures the angle between two vectors and ignores their
+      magnitude, which matters because magnitude in an embedding space often
+      encodes something you do not want in the comparison — for word vectors it
+      correlates with frequency, and for sentence vectors it can correlate with
+      length. Two passages about the same topic at different lengths should be
+      similar, and cosine gives you that where raw Euclidean distance would
+      separate them. Once vectors are L2-normalised, though, the two are
+      equivalent: squared Euclidean distance equals 2 minus twice the cosine, a
+      monotonic relationship, so they induce identical rankings and the choice
+      genuinely does not matter. It stops being harmless when the magnitude
+      carries information you need — some models encode confidence or specificity
+      in the norm — or when you have mixed normalised and unnormalised vectors in
+      one index, which produces silently wrong rankings. It also stops being
+      harmless if you switch metrics without reindexing, since approximate nearest
+      neighbour structures are built for a specific metric.
+  - prompt: "You found a social bias in the embedding space. Describe it with the numbers you measured, and explain where it came from and what it means for a system built on these vectors."
+    answer_key: >-
+      Any measured example is acceptable — commonly, occupation terms sitting
+      closer to one gender term than another, or names associated with particular
+      ethnic groups scoring differently against pleasant and unpleasant word sets,
+      which is the Word Embedding Association Test. It came from the training
+      corpus. The model learned that words appearing in similar contexts should
+      have similar vectors, and in the text it was trained on, some occupations
+      genuinely do co-occur with some pronouns far more than others. The
+      embedding is an accurate summary of the corpus, and the corpus is a record
+      of how people have written, including all the patterns nobody would endorse
+      on reflection. What it means downstream is that any system built on these
+      vectors inherits the association: a résumé search ranks candidates partly on
+      it, a retrieval system surfaces different documents depending on the names
+      in the query, a recommendation system reinforces it. Debiasing methods
+      exist and mostly reduce the measurable symptom rather than the underlying
+      structure, so the honest approach is to measure the bias on your actual
+      task, decide whether it is acceptable, and monitor it — not to assume a
+      preprocessing step has removed it.
+  - prompt: "Embeddings from two different models are not comparable. Explain why, and describe the operational consequence for a vector database that has been running for a year."
+    answer_key: >-
+      Each model learns its own space. The dimensions have no shared meaning
+      across models, the axes are arbitrary up to rotation, and even the number of
+      dimensions usually differs — so a cosine similarity computed between a
+      vector from one model and a vector from another is arithmetic performed on
+      unrelated quantities. It will return a number, which is what makes it
+      dangerous. The operational consequence is that upgrading an embedding model
+      requires re-embedding every document in the index. There is no incremental
+      path: a mixed index silently returns nonsense for any query whose neighbours
+      span both generations, and nothing errors. For a large corpus that is a real
+      cost in compute and time, and it has to be done as an atomic switch with
+      both indexes live during the transition. This is the main reason to record
+      the model name and version alongside every stored vector, and it is a good
+      concrete example of the kind of thing node 6.3's experiment tracking and
+      node 6.6's system view exist to keep straight.
+reflection_prompt: "Before this node, what did you think 'similar' meant when a system told you two things were similar? What does it actually mean now?"
+struggle_signals:
+  - "learner treats cosine similarity as a measure of meaning"
+  - "learner compares vectors from different models"
+  - "learner never looks for a case where similarity misleads"
+  - "learner assumes analogies work reliably"
+---
+
+## Why this node exists
+
+Everything in phase 5 runs on embeddings. Retrieval is nearest neighbours in an
+embedding space; RAG is retrieval; evaluation of both depends on knowing what
+"similar" means to the system.
+
+The failure mode this node inoculates against is treating cosine similarity as a
+measure of meaning. It is not, and the gap between what it measures and what you
+want is where retrieval systems fail — usually by confidently returning something
+on-topic and wrong.
+
+## The session
+
+```bash
+pip install sentence-transformers
+```
+
+```python
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")     # 384 dimensions
+```
+
+### 1. Confirm the basics
+
+- Embedding shape is (n, **384**). Check it.
+- A sentence against itself: cosine 1.0 to within 1e-6.
+- Ten hand-written pairs where you know the answer: related pairs must score
+  higher than unrelated ones.
+
+If those fail, something is wrong with your setup and nothing after this will
+mean anything.
+
+### 2. Go hunting for failures
+
+This is the real session. Find pairs with **high similarity and opposite
+meaning**. Reliable places to look:
+
+- a sentence and its negation: "the deploy succeeded" / "the deploy did not succeed"
+- antonyms in identical frames: "revenue rose sharply" / "revenue fell sharply"
+- same topic, opposite recommendation: "you should use Postgres here" / "you should not use Postgres here"
+- questions and their answers, which are related but not similar
+
+Write down at least two with their scores. Node 5.2 will hand you a retrieval
+system that has exactly this failure mode, and you will already know where to
+look.
+
+### 3. Cosine and Euclidean
+
+Compute both on normalised embeddings and confirm the rankings are identical.
+Then check whether your model's outputs are already normalised — MiniLM's are —
+and consider what would happen if half your index were and half were not.
+
+### 4. Analogies, and how unreliable they are
+
+```
+king - man + woman ≈ ?
+```
+
+Try several. Some work; many do not. Record what you actually got rather than
+what the famous example says you should get. The analogy result is real but far
+weaker and more cherry-picked than its fame suggests, and finding that out
+yourself is worth more than the anecdote.
+
+### 5. Find a bias
+
+Compare occupation terms against gendered terms, or names against pleasant and
+unpleasant word lists — the Word Embedding Association Test setup.
+
+You will find something. Record the numbers.
+
+This is not a moral aside. If node 5.2's retrieval system ranks documents by
+these similarities, this bias is a ranking function in production, and question 3
+asks you to say what that means.
+
+### 6. Two models, no comparison
+
+Embed the same sentence with a second model. The vectors have different
+dimensions, or the same dimensions and no shared meaning. Computing similarity
+across them returns a number that means nothing.
+
+## What an embedding actually is
+
+A learned lookup table. `nn.Embedding(vocab_size, d_model)` is a matrix of
+`vocab_size × d_model` parameters, and embedding a token is indexing a row —
+mathematically identical to multiplying a one-hot vector by that matrix, which is
+why it is implemented as an index instead.
+
+For a 50,000-token vocabulary at 768 dimensions that is 38,400,000 parameters,
+frequently the single largest tensor in a language model. The parameter
+arithmetic from node 4.2 applies unchanged.
+
+Sentence embeddings differ only in that some pooling — mean, or a special token —
+collapses a sequence of token vectors into one.
+
+## Common walls
+
+**Your similarities are all above 0.7.** Normal for sentence embeddings. The
+absolute values carry little meaning; only the ranking does. Calibrate by looking
+at the score of a genuinely unrelated pair.
+
+**Downloading the model is slow the first time.** It caches. About 80 MB.
+
+**Analogies give you back one of the input words.** Standard, and normally
+excluded by convention when the result is reported. Exclude the inputs from the
+neighbour search and see what is actually next.
+
+**Your bias test finds nothing.** Try occupation terms rather than adjectives,
+and use sets of words rather than single ones — single-word comparisons are
+noisy. If it genuinely finds nothing, that is a finding, and worth reporting with
+the same specificity.
+
+## Before you move on
+
+That is phase 4. Phase 5 uses models built from node 4.5's attention and node
+4.6's embeddings without asking you to build them, which is only reasonable
+because you now have. Node 5.1 opens by comparing an LLM against the gradient
+boosting model from node 2.6 — and the intended conclusion is often that the LLM
+is the wrong tool.

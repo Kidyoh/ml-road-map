@@ -1,0 +1,232 @@
+---
+id: "4.5"
+phase: 4
+order_index: 5
+title: "Sequences and attention"
+slug: "sequences-and-attention"
+prereqs: ["4.3"]
+status: "published"
+goal: "You can implement scaled dot-product attention from scratch and explain what each of the three matrices is for, without reaching for an analogy you cannot cash out."
+resources:
+  primary:
+    name: "The Illustrated Transformer — Jay Alammar"
+    url: "https://jalammar.github.io/illustrated-transformer/"
+    type: "article"
+    cost: "free"
+  alt:
+    name: "The Annotated Transformer — Harvard NLP"
+    url: "https://nlp.seas.harvard.edu/annotated-transformer/"
+    type: "article"
+    cost: "free"
+session:
+  brief: "Implement scaled dot-product attention in about fifteen lines of numpy, check every shape and every softmax row against what you predicted, then remove the scaling factor and watch the gradients die. Finish by building a causal mask and proving it prevents position 3 from seeing position 4."
+  difficulty: "hard"
+checklist:
+  - "For seq_len 10 and d_model 64, my Q, K and V are each (10, 64) and my attention score matrix is (10, 10)"
+  - "Every row of my softmax(QK^T/sqrt(d)) sums to 1.0 to within 1e-9, and I asserted it rather than eyeballing it"
+  - "My attention output is (10, 64) — the same shape as the input, which I can explain"
+  - "With 8 heads and d_model 64, each head works in 8 dimensions and my scaling factor is sqrt(8) = 2.828427, not sqrt(64) = 8"
+  - "I removed the sqrt(d) scaling and my softmax outputs became nearly one-hot, with a maximum probability above 0.99 on random inputs at d=64"
+  - "With scaling removed, the largest gradient through the softmax fell by at least two orders of magnitude — I measured it"
+  - "My causal mask sets the upper triangle to -inf before the softmax, and I verified that row 3 of the attention weights has exactly zeros in columns 4 through 9"
+  - "I confirmed that permuting the input positions permutes the output identically when no positional encoding is added, demonstrating that attention alone is order-blind"
+  - "Adding positional encodings breaks that permutation equivariance, and I demonstrated it with the same test"
+questions:
+  - prompt: "Explain what the query, key and value matrices are each for, without using the words 'database' or 'lookup' unless you can cash out the analogy precisely."
+    answer_key: >-
+      Each position produces three different linear projections of its own
+      representation, and they play three different roles. The query is what this
+      position is looking for — it is compared against other positions to decide
+      how much to attend to each. The key is what this position offers as a
+      basis for being found — it is what queries get compared against. The value
+      is what this position actually contributes once it has been attended to. The
+      separation matters because what makes a position relevant and what it should
+      contribute are different questions: a token might be highly relevant to
+      identify — a subject noun that a later verb needs — while what it
+      contributes is something quite different from the features that made it
+      findable. If you used one projection for both, relevance and content would
+      be forced to live in the same space and the model would be strictly less
+      expressive. The database analogy does cash out: it is a soft lookup where
+      instead of one exact key match you get a weighted average over all values,
+      weighted by how well each key matches the query.
+  - prompt: "Removing the sqrt(d) scaling made the softmax nearly one-hot and the gradients tiny. Explain the chain of reasoning from dimension to dead gradient."
+    answer_key: >-
+      A dot product of two d-dimensional vectors with independent entries of unit
+      variance has variance d, so its typical magnitude grows like the square root
+      of d. At d equal to 64 the raw scores are spread over roughly plus or minus
+      8 rather than plus or minus 1. Softmax is exponential, so a spread that wide
+      means the largest score dominates completely and the output is nearly
+      one-hot. The problem is that the gradient of softmax is proportional to
+      p(1 − p) terms, which vanish when p is near 0 or near 1 — so a saturated
+      softmax passes almost no gradient back, and the attention weights stop
+      learning. Dividing by sqrt(d) rescales the scores back to unit variance,
+      keeping the softmax in the region where it is sensitive to its inputs. It is
+      the same phenomenon as a saturated sigmoid in node 4.3, and the same class
+      of fix as He initialisation: control the variance of what flows through the
+      network so that the non-linearities operate where their derivatives are not
+      zero.
+  - prompt: "Attention with no positional encoding is permutation equivariant. Explain what that means concretely, and why it is a problem that needs fixing rather than a feature."
+    answer_key: >-
+      It means that if you shuffle the input positions, the outputs come back in
+      exactly the same shuffled order, unchanged in content — the mechanism has no
+      access to where anything is. Every position attends to every other by
+      content only, and the score between two positions depends on their
+      representations and not at all on their distance or order. That is a problem
+      for language because order carries meaning: "the dog bit the man" and "the
+      man bit the dog" contain identical multisets of tokens and mean different
+      things, and an order-blind model cannot distinguish them. It is fixed by
+      adding position information into the representations themselves, either with
+      fixed sinusoidal encodings, learned position embeddings, or relative schemes
+      such as RoPE that modify the attention scores by relative offset. It is
+      worth noting that the property is genuinely useful when the input really is
+      a set — molecular graphs, point clouds, sets of items — where imposing an
+      arbitrary order would be a false assumption. Convolutions have the opposite
+      bias, and that contrast is the whole architectural argument.
+  - prompt: "Attention is O(n²) in sequence length while a convolution is O(n). Say what the quadratic cost buys, and when you would prefer the convolution anyway."
+    answer_key: >-
+      It buys a direct path between every pair of positions. In a convolution,
+      information from position 1 reaches position 500 only by passing through
+      many layers, each with a small receptive field, so long-range dependencies
+      are learned indirectly, weakly, and only if the network is deep enough for
+      the receptive field to span the distance. Attention connects them in a
+      single operation with a learned weight, so the path length is constant
+      regardless of distance — which is exactly why transformers handle long-range
+      structure so much better and why they replaced recurrent models, whose path
+      length is linear and whose gradients decay along it. What you pay is memory
+      and compute scaling with the square of the sequence, which at long contexts
+      dominates everything. You would prefer the convolution when the important
+      structure genuinely is local — most of vision, audio at short timescales,
+      time series where recent history matters most — because then the locality
+      prior is true and you get it for free rather than spending capacity and
+      compute learning it. The practical picture is that hybrids are common, and
+      that a great deal of research goes into approximating attention at
+      subquadratic cost.
+reflection_prompt: "Attention is described everywhere with analogies. Which analogy had you accepted before implementing it, and what did the implementation show you that the analogy did not?"
+struggle_signals:
+  - "learner cannot state the shape of the attention matrix"
+  - "learner scales by sqrt(d_model) rather than sqrt(d_head)"
+  - "learner explains attention only by analogy"
+  - "learner does not check that softmax rows sum to one"
+---
+
+## Why this node exists
+
+Attention is the mechanism behind almost everything in phase 5, and it is
+explained badly nearly everywhere — usually with an analogy about databases that
+is never cashed out.
+
+It is fifteen lines of arithmetic. Writing them yourself takes an hour and
+replaces the analogy with a thing you know.
+
+## The session
+
+### 1. Scaled dot-product attention, from nothing
+
+```python
+def attention(Q, K, V, mask=None):
+    d_k = Q.shape[-1]
+    scores = Q @ K.T / np.sqrt(d_k)          # (seq, seq)
+    if mask is not None:
+        scores = np.where(mask, scores, -np.inf)
+    weights = softmax(scores, axis=-1)       # each ROW sums to 1
+    return weights @ V, weights
+```
+
+Shapes, for seq_len 10 and d_model 64:
+
+| | Shape |
+|---|---|
+| Q, K, V | (10, 64) |
+| `Q @ K.T` | (10, 10) |
+| weights after softmax | (10, 10) |
+| `weights @ V` | (10, 64) |
+
+Output shape equals input shape, which is what makes these blocks stackable.
+
+Assert the softmax rows:
+
+```python
+assert np.allclose(weights.sum(axis=-1), 1.0, atol=1e-9)
+```
+
+### 2. Delete the scaling and watch it die
+
+Run with and without the `/ np.sqrt(d_k)`, on random inputs at d = 64.
+
+| | Max softmax probability | Largest gradient through softmax |
+|---|---|---|
+| With scaling | moderate, spread out | normal |
+| Without | > 0.99, nearly one-hot | two orders of magnitude smaller |
+
+Measure the gradient rather than assuming it. Question 2 asks for the chain of
+reasoning, and it is the same saturation story as node 4.3.
+
+### 3. Multiple heads
+
+With `d_model = 64` and 8 heads, each head operates in **8** dimensions, not 64.
+So the scaling factor is `sqrt(8) = 2.828427`, not `sqrt(64) = 8`.
+
+Getting this wrong is a common and quiet bug — it does not raise, it just makes
+attention slightly too sharp or too flat.
+
+The heads run in parallel over disjoint slices of the representation, and their
+outputs are concatenated back to 64 and passed through one more linear layer.
+
+### 4. Causal masking
+
+For a model that predicts the next token, position 3 must not see position 4.
+
+```python
+mask = np.tril(np.ones((seq, seq))).astype(bool)
+```
+
+Apply it **before** the softmax, setting the disallowed entries to `-inf` so they
+become exactly zero after exponentiating. Masking after the softmax would leave
+the rows not summing to one.
+
+Verify: row 3 of the weights must be exactly zero in columns 4 through 9.
+
+### 5. Attention cannot see order
+
+Permute the input positions and run attention again. The output is the same,
+permuted the same way. No positional information exists anywhere in the
+mechanism.
+
+Then add positional encodings and repeat the test — the equivariance breaks,
+which is the point of adding them.
+
+## Attention against convolution
+
+| | Convolution | Attention |
+|---|---|---|
+| Prior | features are local, position-invariant | any position may matter to any other |
+| Path length between distant positions | many layers | one operation |
+| Cost in sequence length | linear | quadratic |
+| Knows about order | yes, structurally | no, must be told |
+| Parameters | shared across positions | shared across positions |
+
+Neither is better. They encode different assumptions, and node 4.4's argument
+applies: the right one is whichever assumption is true of your data.
+
+## Common walls
+
+**Your softmax rows do not sum to one.** You applied it along the wrong axis.
+`axis=-1` — each query row is a distribution over keys.
+
+**`-inf` produced NaN.** A whole row was masked out, so the softmax divided by
+zero. Check your mask construction; every row must have at least one allowed
+position, and the diagonal guarantees it for causal masks.
+
+**Multi-head output has the wrong shape.** The concatenation must reassemble to
+`d_model` exactly. With 8 heads of 8 dimensions, 8 × 8 = 64.
+
+**Your attention weights are uniform.** At initialisation they should be roughly
+uniform — that is correct, and it is what "the model has not learned what to
+attend to yet" looks like.
+
+## Before you move on
+
+Node 4.6 is about the representations attention operates on, and it is the last
+node of phase 4. After it, phase 5 uses models built from exactly this mechanism
+without asking you to build one — which is only reasonable because you have now
+built the part that matters.

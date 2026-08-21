@@ -1,0 +1,237 @@
+---
+id: "4.4"
+phase: 4
+order_index: 4
+title: "CNNs"
+slug: "cnns"
+prereqs: ["4.3"]
+status: "published"
+goal: "You can say what convolution buys you over a dense layer, and compute the output shape and parameter count of any layer by hand before running it."
+resources:
+  primary:
+    name: "CS231n — Convolutional Neural Networks"
+    url: "https://cs231n.github.io/convolutional-networks/"
+    type: "article"
+    cost: "free"
+  alt:
+    name: "Dive into Deep Learning — Convolutional Neural Networks, chapters 7 and 8"
+    url: "https://d2l.ai/chapter_convolutional-neural-networks/index.html"
+    type: "book"
+    cost: "free"
+session:
+  brief: "Compute every shape and parameter count for a small CNN on paper first, then build it and check you were right. Then compare it against the dense network from node 4.2 on both accuracy and parameter count, and test what each one does when you shift the image two pixels."
+  difficulty: "medium"
+checklist:
+  - "For a 28x28 input, I computed on paper that conv 3x3 stride 1 pad 0 gives 26x26, maxpool 2x2 gives 13x13, another conv 3x3 gives 11x11, and another maxpool gives 5x5"
+  - "With 32 channels at that point, flattening gives exactly 800 features, and I worked that out before running anything"
+  - "My conv layer from 1 to 16 channels with a 3x3 kernel has exactly 160 parameters: 16*1*9 + 16"
+  - "My conv layer from 16 to 32 channels with a 3x3 kernel has exactly 4,640 parameters: 32*16*9 + 32"
+  - "My whole CNN has fewer parameters than the 101,770 of node 4.2's dense network, and I recorded both numbers"
+  - "The CNN reaches higher MNIST test accuracy than the dense network despite having fewer parameters"
+  - "I shifted every test image 2 pixels right and recorded the accuracy drop for both models — the dense model degrades more"
+  - "I can state what padding='same' does to my shape arithmetic, and I verified it changes 26x26 back to 28x28"
+  - "I visualized the first conv layer's learned filters and can describe what at least two of them respond to"
+questions:
+  - prompt: "State the output-shape formula for a convolution and use it to explain, in one sentence, what stride and padding each control."
+    answer_key: >-
+      Output size equals (input − kernel + 2×padding) / stride + 1, floored,
+      applied independently to height and width. Padding adds a border of zeros
+      around the input, which controls how much the output shrinks — enough
+      padding keeps the size unchanged, which is what padding='same' computes for
+      you, and it exists mainly so that depth does not force the spatial size down
+      to nothing and so that edge pixels are not systematically undersampled.
+      Stride controls how far the kernel moves between applications, so it
+      controls downsampling: stride 2 roughly halves each spatial dimension and is
+      an increasingly common alternative to pooling. The number of output channels
+      is independent of all of this — it is just how many different filters you
+      chose to learn. The habit worth building is to compute the whole chain of
+      shapes on paper before writing the model, because a mismatch only surfaces
+      at the flatten, several layers away from where the mistake was made.
+  - prompt: "Your CNN has fewer parameters than the dense network and performs better. Explain the two structural properties that make this possible."
+    answer_key: >-
+      Local connectivity and weight sharing. A dense layer connects every input
+      pixel to every output unit, so it must learn a separate weight for each
+      pair — 784 times 128 for MNIST — and it has no notion that pixel 5 and pixel
+      6 are adjacent while pixel 5 and pixel 500 are not. A convolutional layer
+      instead connects each output only to a small neighbourhood, and uses the
+      same small set of weights at every position. Those two properties encode a
+      prior about images: that useful features are local, and that a feature
+      worth detecting in one place is worth detecting everywhere. Because the
+      prior is true for images, the network does not have to spend data
+      discovering it, which is why fewer parameters do better. The same 3x3
+      kernel with 9 weights slides over all 676 output positions, so one filter
+      costs 9 weights instead of 676 times 9. The general lesson is that the right
+      architecture is one whose built-in assumptions match the data — the same
+      argument that made trees beat linear models on the fraud data in node 2.6.
+  - prompt: "You shifted the test images two pixels and the dense network degraded more than the CNN. Explain the mechanism, and say how far this translation tolerance actually goes."
+    answer_key: >-
+      The dense network learned a weight for each specific pixel position, so
+      shifting the image maps every feature onto a different set of weights and
+      the learned function no longer applies — it has to have seen that exact
+      arrangement during training. The CNN applies the same filter at every
+      position, so a feature detected at one location produces the same response
+      two pixels over, just shifted in the feature map; pooling then discards some
+      of that positional precision, so small shifts wash out entirely. But the
+      tolerance is limited and often overstated. Convolution is equivariant rather
+      than invariant — the output moves with the input rather than staying the
+      same — and only the pooling and the final flatten convert some of that into
+      genuine invariance. Large shifts, rotations and scale changes are not
+      handled at all, which is precisely why data augmentation exists and why
+      it is usually worth more than an architecture change. A CNN that has never
+      seen a rotated digit will not recognise one.
+  - prompt: "You looked at the first layer's learned filters. Describe what you saw, and say why the first layer's filters are interpretable when the fifth layer's are not."
+    answer_key: >-
+      The first layer typically learns oriented edge detectors — a bright band
+      next to a dark band at some angle — along with blob detectors and, on colour
+      images, simple colour-opponent patterns. They are interpretable because they
+      operate directly on pixels, so a filter is a small image and you can look at
+      it in the same space as the input. This is also a striking empirical
+      result: networks trained on completely different datasets learn very similar
+      first-layer filters, and they resemble the receptive fields found in
+      biological early vision. Deeper layers are not interpretable this way
+      because their inputs are no longer pixels but the activations of the layer
+      before, so a fifth-layer filter is a pattern over abstract feature channels
+      and rendering it as an image is meaningless. To see what those units respond
+      to you need different tools — optimising an input to maximise a unit's
+      activation, or finding the training images that excite it most — and the
+      answers become progressively harder to describe in words as depth increases.
+reflection_prompt: "The CNN encodes an assumption about images that the dense network does not. What assumption would you want a network to encode for a problem in a domain you know well?"
+struggle_signals:
+  - "learner guesses shapes by running the model until it stops erroring"
+  - "learner cannot compute a parameter count by hand"
+  - "learner assumes more parameters means more capacity in a useful sense"
+  - "learner never looks at what the filters learned"
+---
+
+## Why this node exists
+
+Convolutions are the first architecture in this roadmap that encodes a real
+assumption about its input. That idea — that the right architecture is one whose
+built-in prior matches the data — is the one worth taking from this node, and it
+generalises directly to attention in node 4.5.
+
+The other reason is arithmetic. Shape errors in convolutional networks appear
+several layers away from their cause, and the only reliable fix is being able to
+compute the whole chain on paper.
+
+## The session
+
+### 1. Shapes, on paper, before any code
+
+Input: 1 channel, 28x28.
+
+| Layer | Computation | Output |
+|---|---|---|
+| Input | | 1 × 28 × 28 |
+| Conv 3x3, 16 ch, stride 1, pad 0 | (28 − 3)/1 + 1 | 16 × 26 × 26 |
+| MaxPool 2x2 | 26 / 2 | 16 × 13 × 13 |
+| Conv 3x3, 32 ch, stride 1, pad 0 | (13 − 3)/1 + 1 | 32 × 11 × 11 |
+| MaxPool 2x2 | 11 / 2, floored | 32 × 5 × 5 |
+| Flatten | 32 × 5 × 5 | **800** |
+
+The formula, once:
+
+```
+out = floor((in - kernel + 2*padding) / stride) + 1
+```
+
+Note the floor at the second pool: 11 / 2 is 5, not 5.5. That is the step people
+get wrong.
+
+### 2. Parameters, also on paper
+
+A conv layer has `out_channels × in_channels × kernel_h × kernel_w` weights plus
+`out_channels` biases.
+
+| Layer | Computation | Parameters |
+|---|---|---|
+| Conv 1 → 16, 3x3 | 16 × 1 × 9 + 16 | **160** |
+| Conv 16 → 32, 3x3 | 32 × 16 × 9 + 32 | **4,640** |
+| Linear 800 → 10 | 800 × 10 + 10 | 8,010 |
+| | | **12,810** |
+
+Against **101,770** for node 4.2's dense network. An eighth of the parameters.
+
+### 3. Build it and check
+
+```python
+model = nn.Sequential(
+    nn.Conv2d(1, 16, 3), nn.ReLU(), nn.MaxPool2d(2),
+    nn.Conv2d(16, 32, 3), nn.ReLU(), nn.MaxPool2d(2),
+    nn.Flatten(),
+    nn.Linear(800, 10),
+)
+sum(p.numel() for p in model.parameters())
+```
+
+Every number should match your paper. If one does not, find out which before
+training — this is the same discipline as counting parameters in node 4.2.
+
+Run node 4.3's gate: overfit a single batch to below 1e-3 first.
+
+### 4. The comparison
+
+| | Parameters | MNIST test accuracy |
+|---|---|---|
+| Dense 784→128→10 | 101,770 | your number from 4.2 |
+| CNN above | 12,810 | should be higher |
+
+Fewer parameters, better accuracy. Question 2 asks why, and the answer is the
+node.
+
+### 5. Shift the images
+
+```python
+shifted = torch.roll(test_images, shifts=2, dims=-1)
+```
+
+Evaluate both models on the shifted set. The dense model falls further.
+
+Then try shifting by 8 pixels and watch the CNN fall too — question 3 asks how
+far the tolerance actually goes, and the honest answer is "less far than people
+say".
+
+### 6. Look at the filters
+
+```python
+model[0].weight.data          # (16, 1, 3, 3)
+```
+
+Plot them as 16 small images. You should see oriented edges and blobs. These are
+the same features that show up in networks trained on entirely different data.
+
+## `padding='same'` and why it exists
+
+Without padding, every conv shrinks the image. Stack enough layers and you run
+out of pixels. `padding=1` with a 3x3 kernel keeps the size: (28 − 3 + 2)/1 + 1 =
+28.
+
+Verify that yourself — it changes the 26x26 above back to 28x28, and it changes
+your flatten size, which is exactly the kind of shape change that breaks a model
+three layers later.
+
+## Common walls
+
+**Shape mismatch at the Linear layer.** Your flatten size is wrong. Print the
+shape immediately before it rather than recomputing on paper a second time — but
+then reconcile the two, because the discrepancy is the lesson.
+
+**`Conv2d` expects 4 dimensions and got 3.** The batch dimension. A single image
+must be (1, 1, 28, 28), not (1, 28, 28). Node 4.2's question 3 warned about
+exactly this.
+
+**Your CNN is slower than the dense net on CPU.** Expected. It has fewer
+parameters and does far more arithmetic — 160 weights applied at 676 positions is
+more multiplications than a dense layer of the same parameter count. Parameter
+count and compute cost are different quantities and this is a good place to
+internalise that.
+
+**Filters look like noise.** Either training is too short, or you are looking at
+a deeper layer. Only the first layer is interpretable as images.
+
+## Before you move on
+
+Node 4.5 introduces attention, which encodes a completely different prior — that
+any position may need to look at any other, with the network learning which.
+Convolution assumes locality; attention assumes nothing and pays for it in
+compute.

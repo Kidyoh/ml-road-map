@@ -1,0 +1,228 @@
+---
+id: "5.3"
+phase: 5
+order_index: 3
+title: "RAG end to end"
+slug: "rag-end-to-end"
+prereqs: ["5.1", "5.2"]
+status: "published"
+goal: "You can build a retrieval-augmented system and attribute each failure to retrieval or to generation, with evidence rather than a guess."
+resources:
+  primary:
+    name: "LangChain — Build a Retrieval Augmented Generation app"
+    url: "https://python.langchain.com/docs/tutorials/rag/"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "Anthropic — Introducing Contextual Retrieval"
+    url: "https://www.anthropic.com/news/contextual-retrieval"
+    type: "article"
+    cost: "free"
+session:
+  brief: "Assemble node 5.2's retriever with node 5.1's model into a working system. Then take 30 failures and put every single one in exactly one of three buckets: retrieval missed it, generation ignored it, or the corpus never contained the answer. The bucketing is the deliverable."
+  difficulty: "hard"
+checklist:
+  - "My RAG system answers a question end to end and cites which chunks it used"
+  - "I ran the same 30 hand-labelled queries from node 5.2 through the full system"
+  - "For every failure, I recorded whether the correct chunk WAS retrieved — this is the single measurement that splits retrieval failures from generation failures"
+  - "I classified at least 30 failures into exactly three buckets: not retrieved, retrieved but ignored, and not in the corpus at all"
+  - "The three bucket counts sum to my total failure count with nothing left over and nothing double-counted"
+  - "I measured the ceiling: the fraction of queries where the right chunk is in the top k, which is my recall@k from node 5.2 and bounds the whole system"
+  - "I ran the generator with the correct chunk deliberately placed in context and recorded how often it still answered wrongly"
+  - "I ran the generator with a contradictory chunk in context and recorded how often it followed the chunk over its own knowledge"
+  - "I added a 'the context does not contain the answer' escape and measured how often the model uses it correctly versus how often it answers anyway"
+  - "My prompt puts the retrieved context before the question, and I tested the other order and recorded whether it mattered"
+questions:
+  - prompt: "Describe your three-bucket split with the counts, and explain why the bucket a failure lands in completely determines what you should do next."
+    answer_key: >-
+      The three buckets are: the answer was in the corpus but retrieval did not
+      surface it; retrieval surfaced it and the generator failed to use it; and
+      the answer was never in the corpus at all. They lead to entirely different
+      work. A retrieval miss is fixed by chunking, embedding model, hybrid search,
+      query rewriting or reranking — everything from node 5.2, and none of it
+      involves the generator. A generation failure is fixed by prompting, by
+      reducing the number of distracting chunks, by a stronger model, or by
+      restructuring how context is presented — and no amount of retrieval work
+      helps. A corpus gap is fixed by adding documents, and is the only bucket
+      where the correct response might be for the system to say it does not know.
+      The reason to insist on exactly one bucket per failure is that without it,
+      teams work on whichever component they find most interesting, which is
+      usually the prompt, and the numbers do not move because most failures are
+      retrieval. Counting first is what makes the effort go to the right place.
+  - prompt: "You measured the fraction of queries where the correct chunk reaches the context. Explain why that number is a hard ceiling, and what it means if your end-to-end accuracy is close to it."
+    answer_key: >-
+      If the chunk containing the answer is not in the context window, the
+      generator has no access to the information — it can only answer from
+      whatever it happens to have memorised during pretraining, which for a
+      private corpus is nothing. So end-to-end accuracy cannot exceed recall@k
+      except by accident. That makes recall@k the ceiling, and it is the first
+      number to establish because it tells you whether generation work can help at
+      all. If end-to-end accuracy is close to the ceiling, the generator is doing
+      its job well and every remaining point has to come from retrieval —
+      improving the prompt is capped at the small gap that remains. If end-to-end
+      accuracy is far below the ceiling, the generator is throwing away
+      information it was given, and that is where the work is. Either way the
+      comparison tells you which half of the system to spend the week on, which is
+      the same diagnostic move as node 2.7's learning curve.
+  - prompt: "You put a contradictory chunk in context and measured how often the model followed it. Discuss what your number means for a production system."
+    answer_key: >-
+      Models generally do follow the provided context, which is what you want —
+      the whole point of RAG is to ground answers in your documents rather than in
+      the model's recollection. The consequence is that the system inherits the
+      quality of the corpus completely: a stale document, a deprecated policy, or
+      a wrong answer in an old support ticket becomes the system's answer,
+      delivered with the same fluency and confidence as a correct one. Node 5.2's
+      exercise found queries where the top result is on-topic and contradicts the
+      query, so this is not hypothetical. The practical implications: corpus
+      hygiene is a first-class production concern rather than a data-cleaning
+      chore, documents need recency metadata and the retriever should use it,
+      contradictions between retrieved chunks should be detected and surfaced
+      rather than silently resolved by ordering, and citations must be shown so a
+      user can check the source. It also means adding a document to the corpus is
+      a change to system behaviour and deserves the same review a code change
+      would get.
+  - prompt: "You added an 'I don't know' escape and measured how often it is used correctly. Explain why this is harder than it sounds, and what it trades off against."
+    answer_key: >-
+      It is hard because the model has to judge whether the context is sufficient,
+      which is a different and harder task than answering from context — and it
+      does it while under strong pressure from both training and prompt to be
+      helpful. The failure modes go both ways. Too eager to answer, and the escape
+      is never used and provides no protection, which is the common outcome with a
+      one-line instruction. Too eager to abstain, and it declines on questions the
+      context does answer, which users experience as the system being useless and
+      which is often worse in practice because it destroys trust in the cases that
+      work. The trade-off is exactly precision against recall, expressed in
+      behaviour rather than in a metric, and like node 2.4's threshold it should be
+      chosen from the cost of each error rather than left at whatever the prompt
+      happens to produce. What helps: making the abstention concrete rather than
+      permissive, requiring a citation for every claim so an unsupported answer is
+      structurally harder to produce, and evaluating abstention as its own metric
+      with its own labelled cases rather than folding it into overall accuracy.
+reflection_prompt: "Which bucket did most of your failures land in? Was that where you would have spent your effort if you had not counted?"
+struggle_signals:
+  - "learner improves the prompt without checking whether retrieval succeeded"
+  - "learner cannot say whether a given failure was retrieval or generation"
+  - "learner never measures the retrieval ceiling"
+  - "learner treats corpus gaps as model failures"
+---
+
+## Why this node exists
+
+RAG is two systems in a trench coat, and almost all the difficulty is in telling
+which of them just failed.
+
+The default behaviour when a RAG system gives a bad answer is to edit the prompt,
+because the prompt is the visible, editable, satisfying part. Most failures are
+retrieval failures, and no prompt fixes those.
+
+This node is a counting exercise. The counting is the skill.
+
+## The session
+
+Node 5.2's retriever plus node 5.1's model. Same corpus, same 30 hand-labelled
+queries.
+
+### 1. Assemble it
+
+```
+question
+  -> retrieve top k chunks
+  -> build prompt: context, then question
+  -> generate
+  -> return answer plus citations
+```
+
+Cite the chunks. Without citations you cannot do step 3, and step 3 is the node.
+
+### 2. Establish the ceiling before anything else
+
+From node 5.2: **what fraction of queries put the correct chunk in the top k?**
+
+That is recall@k, and end-to-end accuracy cannot exceed it. Write it at the top
+of your notebook the way node 2.1 had you write down the baseline.
+
+### 3. Three buckets, every failure in exactly one
+
+Run all 30. For each failure, ask one question first:
+
+> **Was the correct chunk in the retrieved context?**
+
+| | Bucket | Fix lives in |
+|---|---|---|
+| No, and it exists in the corpus | **Retrieval miss** | node 5.2 — chunking, hybrid, reranking |
+| Yes, but the answer is wrong | **Generation failure** | prompt, model, fewer distractors |
+| The answer is not in the corpus | **Corpus gap** | add documents, or answer "I don't know" |
+
+The counts must sum to your total failures exactly. No "sort of both".
+
+### 4. Isolate the generator
+
+Force the correct chunk into context, every time, and re-run. Whatever still
+fails is purely generation.
+
+This cleanly separates the two systems and takes ten minutes.
+
+### 5. Test whether it follows the context
+
+Put a chunk in context that contradicts what the model would say from its own
+knowledge. Measure how often it follows the chunk.
+
+You generally want it to. Question 3 asks what that implies about your corpus
+becoming your behaviour.
+
+### 6. Add an escape, and measure it
+
+> If the context does not contain the answer, say "I don't know" and stop.
+
+Then measure both directions: how often it correctly abstains, and how often it
+abstains on questions the context does answer.
+
+The second number is the one people forget, and it is usually the one that makes
+the feature unusable.
+
+### 7. Order matters, sometimes
+
+Try context-then-question against question-then-context. Measure rather than
+assume; the effect depends on the model and is worth knowing for yours.
+
+## Improvements, roughly by value
+
+When your counting says retrieval is the problem, this is the usual order of
+payoff:
+
+| Change | Typically worth |
+|---|---|
+| Hybrid dense + BM25 | a lot |
+| Better chunking, structure-aware | a lot |
+| Reranking the top 50 down to 5 | a lot |
+| Query rewriting or expansion | moderate |
+| A larger embedding model | moderate |
+| More chunks in context | diminishing, and adds distractors |
+
+And when generation is the problem, the highest-value change is usually *fewer*
+chunks rather than more — a model given ten chunks where one is relevant performs
+worse than one given three.
+
+## Common walls
+
+**Everything is a "generation failure".** Check that you are really looking at
+whether the correct chunk was retrieved, rather than at whether something
+plausible was. Node 5.2's hand labels are what make this possible.
+
+**The model answers from its own knowledge.** For a public-domain corpus you
+cannot tell grounding from recall. Use a corpus the model cannot have seen — your
+own notes, internal documents, or anything recent.
+
+**Adding more chunks makes it worse.** Expected. Distractors cost more than the
+marginal relevant chunk gains, particularly past about five.
+
+**Citations point at the wrong chunk.** The model is generating plausible
+citation markers rather than reporting what it used. Return the chunk ids from
+your retriever directly rather than asking the model for them.
+
+## Before you move on
+
+Node 5.4 is about evaluating systems like this one properly, and Appendix B is
+blunt about its deliverable: a hand-labelled 50-case eval set, where synthetic or
+model-generated cases do not count. The 30 pairs you have built here are a good
+start on it.

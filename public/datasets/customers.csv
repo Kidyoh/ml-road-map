@@ -1,0 +1,1021 @@
+customer_id,signup_date,segment,region
+C00001,2022-08-17T05:45:00Z,smb,east
+C00001,2022-08-17T05:45:00Z,smb,north
+C00002,21/12/2022,smb,east
+C00002,21/12/2022,smb,west
+C00003,2022-02-03,enterprise,north
+C00003,2022-02-03,enterprise,south
+C00004,2022-07-24,consumer,east
+C00004,2022-07-24,consumer,west
+C00005,2022-03-08,enterprise,north
+C00005,2022-03-08,enterprise,east
+C00006,11/02/2022,enterprise,east
+C00006,11/02/2022,enterprise,west
+C00007,04/04/2022,smb,west
+C00007,04/04/2022,smb,east
+C00008,"August 13, 2022",smb,west
+C00008,"August 13, 2022",smb,north
+C00009,"November 14, 2022",consumer,west
+C00009,"November 14, 2022",consumer,north
+C00010,"August 24, 2022",smb,west
+C00010,"August 24, 2022",smb,south
+C00011,2022-11-07T08:05:00Z,smb,south
+C00011,2022-11-07T08:05:00Z,smb,north
+C00012,2022-10-02T23:30:00Z,consumer,south
+C00012,2022-10-02T23:30:00Z,consumer,west
+C00013,2022-08-23,enterprise,west
+C00013,2022-08-23,enterprise,south
+C00014,2022-09-08T12:24:00Z,enterprise,west
+C00014,2022-09-08T12:24:00Z,enterprise,east
+C00015,04/06/2022,smb,west
+C00015,04/06/2022,smb,east
+C00016,"January 6, 2022",smb,west
+C00016,"January 6, 2022",smb,north
+C00017,19/07/2022,smb,west
+C00017,19/07/2022,smb,east
+C00018,08/07/2022,enterprise,south
+C00018,08/07/2022,enterprise,west
+C00019,"May 14, 2022",smb,south
+C00019,"May 14, 2022",smb,west
+C00020,2022-04-13T12:10:00Z,enterprise,south
+C00020,2022-04-13T12:10:00Z,enterprise,north
+C00021,2022-03-02T18:56:00Z,enterprise,east
+C00021,2022-03-02T18:56:00Z,enterprise,north
+C00022,28/09/2022,consumer,south
+C00022,28/09/2022,consumer,west
+C00023,2022-05-27T11:48:00Z,enterprise,east
+C00023,2022-05-27T11:48:00Z,enterprise,north
+C00024,2022-05-18T14:08:00Z,enterprise,north
+C00024,2022-05-18T14:08:00Z,enterprise,east
+C00025,14/02/2022,consumer,south
+C00025,14/02/2022,consumer,north
+C00026,11/06/2022,enterprise,east
+C00026,11/06/2022,enterprise,west
+C00027,2022-04-07T20:51:00Z,smb,north
+C00027,2022-04-07T20:51:00Z,smb,east
+C00028,14/12/2022,smb,north
+C00028,14/12/2022,smb,west
+C00029,2022-02-18T05:23:00Z,enterprise,east
+C00029,2022-02-18T05:23:00Z,enterprise,west
+C00030,13/06/2022,smb,south
+C00030,13/06/2022,smb,west
+C00031,06/01/2022,consumer,south
+C00031,06/01/2022,consumer,north
+C00032,09/06/2022,enterprise,east
+C00032,09/06/2022,enterprise,south
+C00033,"December 8, 2022",consumer,west
+C00033,"December 8, 2022",consumer,east
+C00034,13/12/2022,enterprise,west
+C00034,13/12/2022,enterprise,north
+C00035,"November 14, 2022",consumer,south
+C00035,"November 14, 2022",consumer,west
+C00036,19/06/2022,enterprise,east
+C00036,19/06/2022,enterprise,north
+C00037,2022-06-08,consumer,west
+C00037,2022-06-08,consumer,north
+C00038,2022-12-11T09:28:00Z,consumer,north
+C00038,2022-12-11T09:28:00Z,consumer,south
+C00039,17/03/2022,smb,east
+C00039,17/03/2022,smb,north
+C00040,"July 22, 2022",consumer,east
+C00040,"July 22, 2022",consumer,south
+C00041,"April 19, 2022",smb,north
+C00041,"April 19, 2022",smb,west
+C00042,"July 2, 2022",smb,west
+C00042,"July 2, 2022",smb,east
+C00043,2022-01-12T11:56:00Z,consumer,north
+C00043,2022-01-12T11:56:00Z,consumer,south
+C00044,"October 25, 2022",enterprise,north
+C00044,"October 25, 2022",enterprise,west
+C00045,"January 6, 2022",consumer,south
+C00045,"January 6, 2022",consumer,east
+C00046,14/12/2022,smb,north
+C00046,14/12/2022,smb,east
+C00047,08/09/2022,enterprise,east
+C00047,08/09/2022,enterprise,north
+C00048,2022-05-25,smb,east
+C00048,2022-05-25,smb,west
+C00049,2022-03-11T03:34:00Z,smb,north
+C00049,2022-03-11T03:34:00Z,smb,south
+C00050,2022-08-17,consumer,south
+C00050,2022-08-17,consumer,east
+C00051,"May 5, 2022",smb,east
+C00051,"May 5, 2022",smb,south
+C00052,2022-09-12,smb,south
+C00052,2022-09-12,smb,east
+C00053,"April 24, 2022",enterprise,east
+C00053,"April 24, 2022",enterprise,south
+C00054,13/11/2022,smb,south
+C00054,13/11/2022,smb,north
+C00055,2022-06-23,smb,east
+C00055,2022-06-23,smb,south
+C00056,2022-05-09T12:49:00Z,smb,west
+C00056,2022-05-09T12:49:00Z,smb,north
+C00057,2022-09-02,enterprise,east
+C00057,2022-09-02,enterprise,north
+C00058,"April 8, 2022",consumer,east
+C00058,"April 8, 2022",consumer,west
+C00059,08/12/2022,smb,west
+C00059,08/12/2022,smb,north
+C00060,"February 23, 2022",enterprise,west
+C00060,"February 23, 2022",enterprise,east
+C00061,2022-02-15T20:39:00Z,enterprise,north
+C00061,2022-02-15T20:39:00Z,enterprise,west
+C00062,"April 18, 2022",enterprise,east
+C00062,"April 18, 2022",enterprise,north
+C00063,2022-12-20,enterprise,west
+C00063,2022-12-20,enterprise,east
+C00064,2022-03-23T07:28:00Z,smb,west
+C00064,2022-03-23T07:28:00Z,smb,east
+C00065,28/10/2022,consumer,south
+C00065,28/10/2022,consumer,east
+C00066,18/08/2022,smb,west
+C00066,18/08/2022,smb,south
+C00067,2022-09-09,smb,east
+C00067,2022-09-09,smb,west
+C00068,"October 5, 2022",consumer,east
+C00068,"October 5, 2022",consumer,north
+C00069,"April 17, 2022",enterprise,west
+C00069,"April 17, 2022",enterprise,south
+C00070,2022-10-11,smb,south
+C00070,2022-10-11,smb,north
+C00071,2022-01-28,smb,west
+C00071,2022-01-28,smb,east
+C00072,2022-12-21,smb,east
+C00072,2022-12-21,smb,west
+C00073,2022-10-01T05:35:00Z,enterprise,west
+C00073,2022-10-01T05:35:00Z,enterprise,east
+C00074,08/05/2022,consumer,west
+C00074,08/05/2022,consumer,south
+C00075,15/08/2022,consumer,west
+C00075,15/08/2022,consumer,east
+C00076,2022-01-18T15:45:00Z,smb,west
+C00076,2022-01-18T15:45:00Z,smb,north
+C00077,23/06/2022,enterprise,east
+C00077,23/06/2022,enterprise,north
+C00078,"September 26, 2022",consumer,north
+C00078,"September 26, 2022",consumer,south
+C00079,11/08/2022,consumer,north
+C00079,11/08/2022,consumer,east
+C00080,"August 26, 2022",smb,south
+C00080,"August 26, 2022",smb,north
+C00081,2022-06-11,smb,north
+C00081,2022-06-11,smb,east
+C00082,"September 17, 2022",enterprise,south
+C00082,"September 17, 2022",enterprise,east
+C00083,"October 18, 2022",smb,north
+C00083,"October 18, 2022",smb,east
+C00084,2022-03-14,consumer,east
+C00084,2022-03-14,consumer,west
+C00085,"February 5, 2022",consumer,east
+C00085,"February 5, 2022",consumer,south
+C00086,2022-02-04T03:21:00Z,smb,north
+C00086,2022-02-04T03:21:00Z,smb,west
+C00087,"November 2, 2022",consumer,south
+C00087,"November 2, 2022",consumer,north
+C00088,2022-09-10T08:50:00Z,enterprise,south
+C00088,2022-09-10T08:50:00Z,enterprise,east
+C00089,2022-11-19,smb,west
+C00089,2022-11-19,smb,south
+C00090,2022-05-07,consumer,north
+C00090,2022-05-07,consumer,east
+C00091,2022-03-14T22:28:00Z,consumer,north
+C00091,2022-03-14T22:28:00Z,consumer,south
+C00092,"April 1, 2022",enterprise,north
+C00092,"April 1, 2022",enterprise,east
+C00093,18/04/2022,smb,east
+C00093,18/04/2022,smb,north
+C00094,11/08/2022,consumer,south
+C00094,11/08/2022,consumer,north
+C00095,13/06/2022,enterprise,east
+C00095,13/06/2022,enterprise,north
+C00096,2022-05-20,consumer,east
+C00096,2022-05-20,consumer,north
+C00097,2022-12-23,smb,east
+C00097,2022-12-23,smb,south
+C00098,2022-06-15,enterprise,south
+C00098,2022-06-15,enterprise,east
+C00099,2022-07-28T01:43:00Z,enterprise,west
+C00099,2022-07-28T01:43:00Z,enterprise,south
+C00100,2022-11-10,consumer,east
+C00100,2022-11-10,consumer,north
+C00101,"February 10, 2022",consumer,north
+C00101,"February 10, 2022",consumer,south
+C00102,"October 1, 2022",smb,west
+C00102,"October 1, 2022",smb,east
+C00103,25/09/2022,consumer,west
+C00103,25/09/2022,consumer,east
+C00104,05/06/2022,smb,south
+C00104,05/06/2022,smb,east
+C00105,2022-05-27T14:40:00Z,smb,south
+C00105,2022-05-27T14:40:00Z,smb,west
+C00106,18/09/2022,smb,east
+C00106,18/09/2022,smb,north
+C00107,"June 22, 2022",consumer,east
+C00107,"June 22, 2022",consumer,north
+C00108,"October 4, 2022",consumer,east
+C00108,"October 4, 2022",consumer,west
+C00109,"June 26, 2022",consumer,north
+C00109,"June 26, 2022",consumer,south
+C00110,2022-03-17T03:15:00Z,smb,west
+C00110,2022-03-17T03:15:00Z,smb,east
+C00111,21/02/2022,smb,east
+C00111,21/02/2022,smb,north
+C00112,2022-06-09T14:01:00Z,smb,west
+C00112,2022-06-09T14:01:00Z,smb,north
+C00113,2022-03-24T06:07:00Z,consumer,south
+C00113,2022-03-24T06:07:00Z,consumer,east
+C00114,2022-10-18,enterprise,north
+C00114,2022-10-18,enterprise,east
+C00115,"September 21, 2022",consumer,north
+C00115,"September 21, 2022",consumer,east
+C00116,2022-10-16,enterprise,north
+C00116,2022-10-16,enterprise,east
+C00117,"June 15, 2022",smb,west
+C00117,"June 15, 2022",smb,east
+C00118,2022-09-03,smb,south
+C00118,2022-09-03,smb,north
+C00119,03/08/2022,consumer,east
+C00119,03/08/2022,consumer,north
+C00120,"May 24, 2022",enterprise,east
+C00120,"May 24, 2022",enterprise,south
+C00121,08/09/2022,enterprise,west
+C00122,2022-05-08,enterprise,north
+C00123,2022-10-25,enterprise,north
+C00124,09/10/2022,enterprise,east
+C00125,2022-04-19T12:23:00Z,smb,south
+C00126,01/08/2022,consumer,north
+C00127,"January 22, 2022",smb,south
+C00128,2022-07-21T18:44:00Z,smb,south
+C00129,2022-12-04,enterprise,north
+C00130,20/12/2022,enterprise,north
+C00131,2022-08-06T06:49:00Z,smb,south
+C00132,25/06/2022,enterprise,west
+C00133,"May 27, 2022",smb,south
+C00134,2022-04-02T05:41:00Z,enterprise,south
+C00135,"January 21, 2022",consumer,east
+C00136,"April 15, 2022",consumer,south
+C00137,2022-05-03,consumer,west
+C00138,19/10/2022,consumer,north
+C00139,"October 5, 2022",smb,north
+C00140,"May 15, 2022",enterprise,north
+C00141,"May 22, 2022",enterprise,south
+C00142,07/12/2022,consumer,south
+C00143,2022-07-26,consumer,north
+C00144,01/07/2022,consumer,west
+C00145,2022-06-04,smb,south
+C00146,2022-06-18,consumer,east
+C00147,"November 21, 2022",smb,west
+C00148,"November 26, 2022",smb,west
+C00149,2022-04-23,consumer,south
+C00150,13/03/2022,smb,south
+C00151,"August 22, 2022",smb,north
+C00152,2022-12-10T22:52:00Z,smb,south
+C00153,28/12/2022,smb,west
+C00154,2022-10-24,smb,south
+C00155,2022-03-14T12:33:00Z,consumer,north
+C00156,16/02/2022,consumer,east
+C00157,"April 4, 2022",enterprise,west
+C00158,2022-01-01,enterprise,north
+C00159,2022-01-22,consumer,south
+C00160,2022-10-11,enterprise,south
+C00161,2022-09-12T20:10:00Z,consumer,north
+C00162,2022-03-13,consumer,west
+C00163,20/01/2022,consumer,west
+C00164,02/07/2022,smb,south
+C00165,2022-08-12T03:38:00Z,smb,south
+C00166,02/04/2022,enterprise,west
+C00167,"October 5, 2022",enterprise,west
+C00168,"March 26, 2022",smb,south
+C00169,"December 10, 2022",enterprise,north
+C00170,26/03/2022,smb,west
+C00171,2022-02-26T09:41:00Z,enterprise,south
+C00172,"January 16, 2022",consumer,west
+C00173,2022-04-16T09:16:00Z,enterprise,east
+C00174,"December 12, 2022",smb,west
+C00175,2022-02-09T22:10:00Z,smb,east
+C00176,2022-03-23T12:38:00Z,smb,east
+C00177,2022-01-21,enterprise,east
+C00178,07/03/2022,smb,east
+C00179,2022-01-28T14:21:00Z,consumer,east
+C00180,2022-01-08T19:34:00Z,smb,west
+C00181,2022-12-01,consumer,east
+C00182,2022-05-03T15:41:00Z,consumer,west
+C00183,21/04/2022,smb,south
+C00184,2022-08-06,consumer,west
+C00185,2022-02-21T07:57:00Z,enterprise,south
+C00186,2022-07-13T12:10:00Z,enterprise,west
+C00187,2022-09-17,enterprise,west
+C00188,2022-02-09,smb,east
+C00189,04/01/2022,consumer,north
+C00190,2022-04-08,enterprise,south
+C00191,"May 21, 2022",enterprise,north
+C00192,2022-01-20,consumer,south
+C00193,2022-11-09,enterprise,west
+C00194,20/03/2022,consumer,west
+C00195,2022-05-14,consumer,south
+C00196,2022-07-23,consumer,north
+C00197,28/03/2022,smb,south
+C00198,"November 28, 2022",enterprise,west
+C00199,10/07/2022,enterprise,east
+C00200,26/07/2022,enterprise,north
+C00201,2022-11-25T14:45:00Z,consumer,west
+C00202,2022-10-08T05:37:00Z,consumer,north
+C00203,17/12/2022,consumer,east
+C00204,2022-11-03,consumer,north
+C00205,2022-06-13T10:33:00Z,consumer,west
+C00206,"April 12, 2022",smb,west
+C00207,2022-08-25T07:49:00Z,smb,east
+C00208,"July 18, 2022",consumer,north
+C00209,2022-04-11T15:00:00Z,smb,east
+C00210,2022-05-04,enterprise,south
+C00211,2022-10-01T05:16:00Z,enterprise,east
+C00212,2022-03-17,enterprise,south
+C00213,2022-12-10,smb,east
+C00214,2022-08-06T23:49:00Z,smb,north
+C00215,05/12/2022,enterprise,west
+C00216,"May 1, 2022",smb,east
+C00217,2022-12-21T23:47:00Z,consumer,north
+C00218,"December 12, 2022",enterprise,south
+C00219,2022-12-16T22:29:00Z,enterprise,north
+C00220,"May 5, 2022",smb,south
+C00221,"January 22, 2022",consumer,east
+C00222,2022-09-01,consumer,east
+C00223,2022-08-04T23:16:00Z,enterprise,west
+C00224,2022-12-23,consumer,south
+C00225,2022-07-11,smb,north
+C00226,18/03/2022,smb,east
+C00227,2022-09-24,enterprise,east
+C00228,"January 25, 2022",smb,east
+C00229,07/09/2022,enterprise,north
+C00230,2022-12-25,consumer,west
+C00231,2022-10-16,enterprise,north
+C00232,09/08/2022,smb,east
+C00233,"July 27, 2022",enterprise,west
+C00234,26/08/2022,consumer,east
+C00235,2022-05-28T07:17:00Z,consumer,west
+C00236,2022-08-16,enterprise,east
+C00237,"January 28, 2022",consumer,east
+C00238,2022-09-10T23:37:00Z,consumer,north
+C00239,"August 24, 2022",smb,north
+C00240,"December 26, 2022",smb,west
+C00241,2022-12-26,consumer,east
+C00242,2022-04-23,smb,east
+C00243,"May 24, 2022",consumer,east
+C00244,"June 11, 2022",enterprise,west
+C00245,"January 15, 2022",enterprise,south
+C00246,09/06/2022,consumer,east
+C00247,2022-10-02T01:41:00Z,smb,west
+C00248,2022-06-18T09:11:00Z,smb,south
+C00249,2022-03-13,enterprise,north
+C00250,2022-05-06,enterprise,north
+C00251,2022-09-02,smb,south
+C00252,03/03/2022,consumer,west
+C00253,03/03/2022,smb,north
+C00254,2022-07-15T00:05:00Z,enterprise,south
+C00255,28/07/2022,enterprise,south
+C00256,"November 28, 2022",consumer,west
+C00257,"October 3, 2022",enterprise,south
+C00258,2022-05-06,enterprise,west
+C00259,05/07/2022,enterprise,south
+C00260,2022-02-08T00:57:00Z,enterprise,south
+C00261,2022-02-21T13:00:00Z,consumer,east
+C00262,"December 10, 2022",enterprise,west
+C00263,26/08/2022,enterprise,south
+C00264,2022-02-17,consumer,south
+C00265,2022-09-10,smb,west
+C00266,21/09/2022,consumer,west
+C00267,2022-10-18T06:34:00Z,consumer,north
+C00268,"October 13, 2022",enterprise,north
+C00269,"June 19, 2022",smb,south
+C00270,2022-04-18,consumer,west
+C00271,15/12/2022,smb,east
+C00272,2022-12-03,smb,north
+C00273,"April 8, 2022",enterprise,east
+C00274,2022-03-15,smb,south
+C00275,"August 27, 2022",consumer,north
+C00276,"December 13, 2022",enterprise,north
+C00277,2022-07-27T17:41:00Z,enterprise,east
+C00278,18/04/2022,consumer,north
+C00279,2022-12-02,consumer,west
+C00280,2022-01-10T20:48:00Z,smb,west
+C00281,2022-02-20,consumer,west
+C00282,2022-12-13,enterprise,north
+C00283,"January 21, 2022",smb,south
+C00284,02/03/2022,smb,east
+C00285,2022-12-05T17:05:00Z,enterprise,south
+C00286,"November 15, 2022",enterprise,west
+C00287,"July 4, 2022",enterprise,east
+C00288,2022-11-20T05:20:00Z,smb,south
+C00289,18/03/2022,consumer,south
+C00290,08/11/2022,consumer,west
+C00291,2022-01-12,enterprise,south
+C00292,2022-07-23T22:49:00Z,consumer,west
+C00293,2022-12-13,consumer,west
+C00294,2022-10-17,consumer,west
+C00295,05/08/2022,consumer,west
+C00296,"November 8, 2022",consumer,north
+C00297,2022-10-18,consumer,south
+C00298,"December 1, 2022",smb,west
+C00299,2022-05-10,consumer,south
+C00300,2022-12-05,consumer,north
+C00301,2022-03-10,consumer,south
+C00302,"December 25, 2022",consumer,east
+C00303,2022-08-13T14:19:00Z,consumer,east
+C00304,2022-08-17,enterprise,east
+C00305,"January 25, 2022",consumer,west
+C00306,2022-03-25T14:05:00Z,consumer,north
+C00307,"August 11, 2022",smb,north
+C00308,2022-03-28,consumer,south
+C00309,2022-11-03T12:00:00Z,smb,east
+C00310,28/03/2022,enterprise,south
+C00311,2022-10-04T01:11:00Z,enterprise,south
+C00312,2022-09-22,consumer,east
+C00313,"December 5, 2022",smb,west
+C00314,2022-04-28,smb,west
+C00315,2022-07-17,smb,east
+C00316,"September 18, 2022",enterprise,south
+C00317,13/08/2022,enterprise,south
+C00318,2022-07-05T18:29:00Z,consumer,south
+C00319,2022-10-13T14:03:00Z,consumer,south
+C00320,2022-09-24,smb,west
+C00321,"April 14, 2022",consumer,south
+C00322,04/08/2022,enterprise,north
+C00323,2022-01-11,enterprise,north
+C00324,2022-04-06,smb,south
+C00325,"October 13, 2022",enterprise,north
+C00326,2022-07-20T16:15:00Z,enterprise,north
+C00327,10/10/2022,enterprise,south
+C00328,2022-09-13T08:50:00Z,smb,east
+C00329,2022-03-22,smb,east
+C00330,07/12/2022,consumer,south
+C00331,2022-07-03,consumer,north
+C00332,"March 4, 2022",smb,south
+C00333,"April 17, 2022",consumer,west
+C00334,2022-10-01,consumer,west
+C00335,26/04/2022,enterprise,east
+C00336,"June 14, 2022",smb,south
+C00337,2022-07-13T12:38:00Z,smb,east
+C00338,2022-11-09,consumer,east
+C00339,"August 13, 2022",smb,south
+C00340,01/11/2022,consumer,west
+C00341,12/09/2022,smb,south
+C00342,2022-02-25,consumer,east
+C00343,"October 27, 2022",enterprise,west
+C00344,"January 12, 2022",smb,east
+C00345,"August 2, 2022",consumer,north
+C00346,24/07/2022,consumer,south
+C00347,2022-10-02,enterprise,west
+C00348,2022-09-09T20:18:00Z,enterprise,north
+C00349,"March 1, 2022",consumer,north
+C00350,2022-03-20,consumer,east
+C00351,2022-11-09T20:08:00Z,enterprise,east
+C00352,2022-06-11T23:40:00Z,consumer,west
+C00353,2022-01-25,enterprise,east
+C00354,17/12/2022,smb,west
+C00355,2022-10-08T19:26:00Z,smb,east
+C00356,"June 9, 2022",enterprise,south
+C00357,08/05/2022,enterprise,west
+C00358,2022-07-09T07:06:00Z,enterprise,east
+C00359,12/04/2022,smb,east
+C00360,"July 3, 2022",enterprise,south
+C00361,"August 7, 2022",enterprise,south
+C00362,2022-04-06,smb,north
+C00363,02/01/2022,consumer,west
+C00364,2022-08-05,consumer,east
+C00365,"January 23, 2022",smb,north
+C00366,20/03/2022,consumer,north
+C00367,2022-04-17,enterprise,south
+C00368,2022-01-04T09:32:00Z,consumer,north
+C00369,2022-10-23T09:34:00Z,smb,west
+C00370,"November 3, 2022",enterprise,north
+C00371,"September 16, 2022",consumer,west
+C00372,"April 10, 2022",enterprise,west
+C00373,25/01/2022,consumer,north
+C00374,2022-08-07T15:49:00Z,enterprise,east
+C00375,"December 24, 2022",enterprise,east
+C00376,2022-07-21,consumer,west
+C00377,"April 10, 2022",consumer,north
+C00378,2022-03-09,consumer,west
+C00379,2022-02-13,enterprise,south
+C00380,10/07/2022,enterprise,east
+C00381,2022-02-01,smb,east
+C00382,"April 15, 2022",enterprise,west
+C00383,2022-03-08T12:24:00Z,consumer,north
+C00384,2022-10-02,enterprise,east
+C00385,"July 3, 2022",smb,east
+C00386,"November 5, 2022",enterprise,east
+C00387,27/10/2022,smb,west
+C00388,2022-04-12T08:02:00Z,consumer,west
+C00389,2022-07-13,consumer,south
+C00390,"May 6, 2022",enterprise,south
+C00391,05/08/2022,smb,east
+C00392,22/10/2022,consumer,east
+C00393,2022-07-23,enterprise,south
+C00394,02/02/2022,smb,west
+C00395,"June 26, 2022",consumer,south
+C00396,"March 19, 2022",smb,north
+C00397,2022-05-12T05:00:00Z,enterprise,west
+C00398,2022-01-19T04:51:00Z,smb,east
+C00399,2022-02-25T14:54:00Z,enterprise,east
+C00400,20/06/2022,consumer,south
+C00401,27/05/2022,enterprise,north
+C00402,2022-09-20,consumer,north
+C00403,2022-07-24,smb,east
+C00404,20/06/2022,enterprise,east
+C00405,"June 20, 2022",consumer,west
+C00406,2022-03-26T13:11:00Z,enterprise,south
+C00407,2022-05-15T08:15:00Z,smb,east
+C00408,07/08/2022,consumer,east
+C00409,"February 27, 2022",smb,west
+C00410,2022-01-06,enterprise,east
+C00411,2022-08-09T15:11:00Z,smb,south
+C00412,2022-10-09,enterprise,north
+C00413,2022-02-27,enterprise,west
+C00414,2022-03-24T08:45:00Z,smb,north
+C00415,2022-07-13T15:28:00Z,smb,north
+C00416,2022-08-03T09:43:00Z,smb,east
+C00417,"April 6, 2022",consumer,east
+C00418,2022-12-10T14:44:00Z,smb,south
+C00419,2022-10-16T18:54:00Z,enterprise,west
+C00420,2022-06-18T17:28:00Z,enterprise,east
+C00421,2022-04-24T21:30:00Z,consumer,east
+C00422,26/06/2022,smb,east
+C00423,2022-04-04,smb,north
+C00424,2022-08-03T03:04:00Z,consumer,west
+C00425,"May 11, 2022",enterprise,west
+C00426,"April 23, 2022",consumer,south
+C00427,2022-09-07,consumer,south
+C00428,27/08/2022,smb,west
+C00429,2022-02-22,consumer,east
+C00430,"May 13, 2022",enterprise,east
+C00431,19/02/2022,consumer,north
+C00432,2022-08-12T00:30:00Z,consumer,south
+C00433,2022-03-16,enterprise,east
+C00434,2022-06-26T21:04:00Z,smb,north
+C00435,2022-01-26T19:26:00Z,consumer,north
+C00436,2022-08-28,smb,south
+C00437,2022-06-03,smb,north
+C00438,2022-07-04T09:56:00Z,smb,south
+C00439,2022-08-17,enterprise,south
+C00440,06/04/2022,enterprise,west
+C00441,2022-03-23T23:02:00Z,enterprise,east
+C00442,"December 3, 2022",smb,west
+C00443,2022-01-06,smb,north
+C00444,20/05/2022,enterprise,south
+C00445,2022-06-25T07:00:00Z,consumer,north
+C00446,"January 6, 2022",enterprise,west
+C00447,2022-07-06T03:50:00Z,smb,west
+C00448,2022-07-22T13:34:00Z,consumer,north
+C00449,14/04/2022,smb,west
+C00450,2022-01-05,smb,south
+C00451,2022-02-24T15:33:00Z,consumer,south
+C00452,"September 14, 2022",enterprise,west
+C00453,2022-06-02,smb,west
+C00454,2022-04-28T04:58:00Z,enterprise,west
+C00455,22/10/2022,enterprise,west
+C00456,"February 20, 2022",enterprise,south
+C00457,"July 24, 2022",smb,south
+C00458,11/09/2022,enterprise,east
+C00459,2022-08-20T15:24:00Z,consumer,south
+C00460,"May 4, 2022",enterprise,north
+C00461,2022-06-24T15:35:00Z,smb,north
+C00462,"September 17, 2022",smb,north
+C00463,2022-12-16T07:49:00Z,smb,north
+C00464,"August 2, 2022",smb,west
+C00465,2022-11-11T18:14:00Z,consumer,south
+C00466,"August 7, 2022",enterprise,west
+C00467,2022-03-19T01:32:00Z,consumer,east
+C00468,11/02/2022,enterprise,north
+C00469,2022-05-15T14:49:00Z,consumer,west
+C00470,06/06/2022,consumer,south
+C00471,2022-04-24T09:49:00Z,enterprise,east
+C00472,2022-08-24,enterprise,east
+C00473,2022-09-05T20:02:00Z,smb,east
+C00474,"January 16, 2022",smb,north
+C00475,2022-10-28T16:24:00Z,enterprise,east
+C00476,06/07/2022,enterprise,east
+C00477,"December 19, 2022",enterprise,east
+C00478,"November 23, 2022",smb,east
+C00479,2022-06-22,consumer,south
+C00480,19/07/2022,enterprise,west
+C00481,2022-08-21T19:11:00Z,enterprise,east
+C00482,"March 6, 2022",consumer,north
+C00483,20/01/2022,consumer,north
+C00484,2022-03-15T20:43:00Z,smb,east
+C00485,2022-04-08T11:32:00Z,smb,south
+C00486,05/03/2022,consumer,west
+C00487,"January 5, 2022",enterprise,east
+C00488,"March 27, 2022",enterprise,east
+C00489,22/06/2022,enterprise,east
+C00490,"May 28, 2022",enterprise,south
+C00491,2022-06-18,consumer,west
+C00492,11/03/2022,smb,east
+C00493,"March 1, 2022",enterprise,north
+C00494,"September 14, 2022",consumer,south
+C00495,10/08/2022,consumer,north
+C00496,2022-04-26T18:16:00Z,consumer,south
+C00497,"November 6, 2022",consumer,north
+C00498,"September 18, 2022",smb,west
+C00499,2022-10-09T10:57:00Z,smb,west
+C00500,2022-04-11,enterprise,west
+C00501,21/03/2022,smb,north
+C00502,"January 23, 2022",consumer,south
+C00503,2022-04-14,enterprise,east
+C00504,2022-07-06T15:10:00Z,consumer,north
+C00505,"September 13, 2022",smb,east
+C00506,"July 17, 2022",smb,south
+C00507,2022-02-16,enterprise,north
+C00508,2022-03-21,enterprise,west
+C00509,10/09/2022,smb,north
+C00510,2022-03-02T07:35:00Z,smb,south
+C00511,15/09/2022,consumer,west
+C00512,04/06/2022,smb,south
+C00513,2022-09-15T05:16:00Z,smb,east
+C00514,2022-06-21T09:35:00Z,consumer,east
+C00515,2022-02-23,enterprise,north
+C00516,2022-01-17T06:05:00Z,smb,west
+C00517,2022-03-24T13:19:00Z,smb,north
+C00518,2022-09-09T06:33:00Z,consumer,north
+C00519,07/10/2022,enterprise,east
+C00520,2022-12-28,enterprise,west
+C00521,2022-09-03T06:30:00Z,smb,east
+C00522,"September 20, 2022",smb,south
+C00523,"April 5, 2022",consumer,west
+C00524,2022-03-14,smb,east
+C00525,22/09/2022,smb,west
+C00526,2022-08-27,enterprise,north
+C00527,"July 19, 2022",consumer,north
+C00528,24/09/2022,smb,north
+C00529,11/09/2022,smb,east
+C00530,"June 20, 2022",enterprise,east
+C00531,2022-11-09,consumer,north
+C00532,2022-04-03,enterprise,south
+C00533,2022-09-10,enterprise,west
+C00534,26/12/2022,consumer,north
+C00535,2022-07-11T16:34:00Z,enterprise,south
+C00536,2022-01-07,smb,north
+C00537,2022-12-02T09:03:00Z,consumer,south
+C00538,"February 16, 2022",enterprise,east
+C00539,2022-07-28T19:58:00Z,consumer,west
+C00540,01/06/2022,smb,east
+C00541,2022-02-14,consumer,west
+C00542,"March 21, 2022",smb,north
+C00543,"May 19, 2022",enterprise,north
+C00544,21/10/2022,consumer,south
+C00545,2022-02-04,consumer,east
+C00546,2022-09-24T10:52:00Z,smb,east
+C00547,17/01/2022,enterprise,north
+C00548,"October 27, 2022",smb,west
+C00549,08/07/2022,consumer,east
+C00550,"April 4, 2022",smb,south
+C00551,"December 12, 2022",smb,south
+C00552,"June 23, 2022",enterprise,east
+C00553,2022-10-22,smb,west
+C00554,2022-09-12T20:38:00Z,enterprise,north
+C00555,2022-04-18T23:30:00Z,consumer,south
+C00556,01/02/2022,enterprise,east
+C00557,2022-06-25,enterprise,west
+C00558,2022-04-14,smb,west
+C00559,2022-09-20,smb,west
+C00560,2022-09-16,enterprise,west
+C00561,2022-02-24,smb,west
+C00562,2022-04-19,consumer,north
+C00563,2022-09-26,enterprise,east
+C00564,19/10/2022,enterprise,east
+C00565,2022-09-24T23:03:00Z,smb,west
+C00566,2022-01-11T19:09:00Z,enterprise,south
+C00567,2022-03-06,enterprise,south
+C00568,2022-12-20,consumer,east
+C00569,"June 16, 2022",consumer,east
+C00570,27/05/2022,consumer,east
+C00571,"June 27, 2022",smb,south
+C00572,2022-04-21,smb,south
+C00573,"June 5, 2022",smb,south
+C00574,2022-06-24T08:02:00Z,consumer,south
+C00575,"May 4, 2022",smb,east
+C00576,2022-11-04T07:06:00Z,enterprise,south
+C00577,2022-06-13T20:24:00Z,smb,north
+C00578,"May 13, 2022",consumer,east
+C00579,08/05/2022,consumer,south
+C00580,2022-05-23,smb,east
+C00581,2022-04-19T07:50:00Z,consumer,south
+C00582,2022-02-02,smb,east
+C00583,2022-12-04,enterprise,north
+C00584,24/05/2022,smb,west
+C00585,2022-08-19T19:24:00Z,smb,south
+C00586,2022-02-15,consumer,east
+C00587,2022-11-22T22:57:00Z,enterprise,north
+C00588,"October 15, 2022",consumer,south
+C00589,14/02/2022,smb,north
+C00590,"October 9, 2022",enterprise,west
+C00591,16/03/2022,smb,west
+C00592,02/01/2022,enterprise,south
+C00593,"October 18, 2022",enterprise,west
+C00594,08/05/2022,consumer,south
+C00595,2022-06-15T03:22:00Z,smb,north
+C00596,2022-05-23T13:25:00Z,consumer,south
+C00597,"October 5, 2022",smb,east
+C00598,2022-05-05T07:12:00Z,enterprise,east
+C00599,"January 18, 2022",enterprise,north
+C00600,2022-04-20,smb,south
+C00601,2022-04-18T05:48:00Z,enterprise,south
+C00602,2022-01-17,smb,west
+C00603,"August 5, 2022",smb,west
+C00604,2022-06-01T16:26:00Z,enterprise,south
+C00605,12/03/2022,enterprise,east
+C00606,24/01/2022,consumer,north
+C00607,02/12/2022,consumer,west
+C00608,2022-02-26,enterprise,east
+C00609,"May 26, 2022",smb,west
+C00610,"May 9, 2022",enterprise,south
+C00611,2022-08-17T08:28:00Z,consumer,south
+C00612,18/01/2022,consumer,south
+C00613,2022-05-27T04:01:00Z,smb,east
+C00614,01/02/2022,enterprise,south
+C00615,2022-04-09,enterprise,south
+C00616,2022-05-23T08:17:00Z,smb,east
+C00617,"January 25, 2022",smb,south
+C00618,2022-04-24T09:04:00Z,consumer,east
+C00619,2022-02-10,smb,east
+C00620,25/09/2022,enterprise,east
+C00621,2022-11-09,enterprise,east
+C00622,"April 24, 2022",smb,south
+C00623,18/04/2022,smb,east
+C00624,"December 17, 2022",smb,north
+C00625,2022-02-26T14:43:00Z,smb,south
+C00626,2022-03-11,smb,south
+C00627,2022-12-10,consumer,north
+C00628,"August 13, 2022",enterprise,east
+C00629,"January 19, 2022",enterprise,south
+C00630,2022-02-02T02:48:00Z,consumer,east
+C00631,"May 6, 2022",smb,east
+C00632,24/12/2022,smb,west
+C00633,2022-07-07,consumer,south
+C00634,26/04/2022,enterprise,south
+C00635,2022-02-18,enterprise,west
+C00636,2022-10-25T12:35:00Z,consumer,north
+C00637,2022-05-20T14:32:00Z,smb,south
+C00638,"May 26, 2022",smb,south
+C00639,"February 10, 2022",enterprise,north
+C00640,2022-08-03,consumer,east
+C00641,2022-01-01T00:45:00Z,consumer,south
+C00642,2022-11-16T09:36:00Z,smb,south
+C00643,2022-12-07,smb,west
+C00644,"January 3, 2022",consumer,east
+C00645,19/07/2022,enterprise,east
+C00646,15/11/2022,enterprise,east
+C00647,12/08/2022,smb,south
+C00648,2022-03-13,enterprise,north
+C00649,"January 6, 2022",consumer,south
+C00650,2022-12-21T14:28:00Z,enterprise,east
+C00651,2022-04-12T01:40:00Z,smb,east
+C00652,2022-03-25,consumer,south
+C00653,2022-10-01T19:32:00Z,enterprise,west
+C00654,2022-04-18T18:35:00Z,consumer,east
+C00655,2022-04-06T05:31:00Z,enterprise,west
+C00656,2022-07-21,smb,north
+C00657,2022-11-01,consumer,west
+C00658,2022-10-04T01:26:00Z,smb,west
+C00659,2022-02-14,enterprise,north
+C00660,2022-12-02,consumer,south
+C00661,"December 20, 2022",enterprise,north
+C00662,"April 10, 2022",enterprise,east
+C00663,2022-07-25,enterprise,north
+C00664,2022-09-06T01:02:00Z,consumer,west
+C00665,2022-04-16,enterprise,east
+C00666,2022-02-07,consumer,north
+C00667,2022-03-08,smb,east
+C00668,2022-03-06T03:56:00Z,smb,north
+C00669,2022-12-04T23:50:00Z,consumer,east
+C00670,01/03/2022,consumer,west
+C00671,2022-07-17,consumer,east
+C00672,2022-05-28,consumer,north
+C00673,2022-04-20,consumer,south
+C00674,"April 26, 2022",enterprise,west
+C00675,"March 12, 2022",enterprise,north
+C00676,2022-06-25T08:07:00Z,consumer,west
+C00677,10/05/2022,enterprise,east
+C00678,"June 10, 2022",smb,east
+C00679,2022-09-04,enterprise,east
+C00680,14/12/2022,consumer,north
+C00681,"August 12, 2022",smb,west
+C00682,2022-12-14,enterprise,north
+C00683,"November 12, 2022",smb,south
+C00684,21/01/2022,smb,north
+C00685,14/03/2022,smb,east
+C00686,2022-04-13T06:21:00Z,enterprise,east
+C00687,2022-12-25,consumer,east
+C00688,"April 28, 2022",smb,north
+C00689,23/11/2022,enterprise,north
+C00690,2022-08-10T19:06:00Z,enterprise,west
+C00691,2022-06-07,enterprise,north
+C00692,2022-05-27,consumer,south
+C00693,03/06/2022,smb,north
+C00694,18/12/2022,smb,south
+C00695,01/11/2022,smb,north
+C00696,2022-05-11T10:30:00Z,enterprise,east
+C00697,"January 9, 2022",consumer,north
+C00698,2022-12-01,enterprise,south
+C00699,07/01/2022,smb,west
+C00700,2022-11-18,enterprise,east
+C00701,2022-07-03,smb,west
+C00702,"August 5, 2022",smb,west
+C00703,06/07/2022,consumer,west
+C00704,2022-02-10,smb,west
+C00705,"June 20, 2022",consumer,south
+C00706,"February 6, 2022",smb,east
+C00707,06/04/2022,enterprise,west
+C00708,2022-11-03,consumer,west
+C00709,2022-03-03,consumer,west
+C00710,2022-11-12T10:42:00Z,enterprise,south
+C00711,2022-01-19,consumer,south
+C00712,17/11/2022,consumer,east
+C00713,17/09/2022,consumer,east
+C00714,2022-03-21,enterprise,west
+C00715,13/11/2022,enterprise,east
+C00716,"June 20, 2022",consumer,north
+C00717,2022-12-25T21:03:00Z,consumer,north
+C00718,2022-09-12T21:48:00Z,consumer,west
+C00719,2022-11-22,consumer,west
+C00720,2022-09-11,enterprise,north
+C00721,2022-05-27,enterprise,north
+C00722,2022-03-14,consumer,north
+C00723,2022-07-26,enterprise,north
+C00724,17/12/2022,smb,west
+C00725,2022-08-19T09:10:00Z,smb,west
+C00726,11/04/2022,enterprise,south
+C00727,2022-03-08,enterprise,north
+C00728,2022-07-14T01:09:00Z,smb,south
+C00729,2022-06-18T08:37:00Z,smb,north
+C00730,24/10/2022,enterprise,south
+C00731,2022-07-05T22:38:00Z,enterprise,east
+C00732,"June 4, 2022",smb,north
+C00733,2022-11-14T21:08:00Z,consumer,west
+C00734,"February 11, 2022",consumer,west
+C00735,15/11/2022,enterprise,west
+C00736,2022-05-22T20:52:00Z,smb,west
+C00737,24/09/2022,smb,east
+C00738,"October 12, 2022",smb,south
+C00739,2022-03-02,consumer,north
+C00740,2022-07-04,consumer,west
+C00741,2022-09-14T16:24:00Z,enterprise,south
+C00742,26/11/2022,smb,south
+C00743,"April 13, 2022",smb,south
+C00744,14/10/2022,smb,west
+C00745,15/03/2022,consumer,south
+C00746,2022-05-05,smb,north
+C00747,2022-06-19,consumer,west
+C00748,"May 17, 2022",smb,north
+C00749,2022-08-09,consumer,south
+C00750,"November 19, 2022",enterprise,north
+C00751,2022-09-01,smb,east
+C00752,04/07/2022,consumer,north
+C00753,2022-10-15T06:31:00Z,smb,east
+C00754,06/08/2022,enterprise,north
+C00755,22/11/2022,smb,east
+C00756,2022-10-15,enterprise,east
+C00757,2022-03-04,smb,south
+C00758,2022-04-06,smb,north
+C00759,2022-03-19,smb,north
+C00760,15/03/2022,consumer,north
+C00761,14/04/2022,smb,west
+C00762,2022-02-10T04:25:00Z,consumer,west
+C00763,20/05/2022,enterprise,west
+C00764,"September 22, 2022",enterprise,east
+C00765,2022-01-01,smb,south
+C00766,09/02/2022,smb,east
+C00767,2022-03-05T23:21:00Z,consumer,north
+C00768,2022-09-25,enterprise,north
+C00769,03/04/2022,consumer,south
+C00770,2022-02-16T17:08:00Z,consumer,south
+C00771,2022-08-05,consumer,east
+C00772,2022-02-02,smb,south
+C00773,"January 16, 2022",enterprise,north
+C00774,22/02/2022,enterprise,east
+C00775,20/12/2022,consumer,south
+C00776,06/12/2022,consumer,north
+C00777,"March 22, 2022",consumer,east
+C00778,2022-11-10,consumer,north
+C00779,2022-10-06T10:03:00Z,consumer,west
+C00780,"May 27, 2022",smb,south
+C00781,2022-06-27T16:49:00Z,consumer,west
+C00782,"January 23, 2022",consumer,east
+C00783,2022-04-16,enterprise,south
+C00784,22/03/2022,smb,south
+C00785,07/12/2022,smb,east
+C00786,"October 6, 2022",enterprise,south
+C00787,"February 12, 2022",enterprise,south
+C00788,03/05/2022,enterprise,west
+C00789,"October 12, 2022",consumer,north
+C00790,15/02/2022,smb,north
+C00791,"May 22, 2022",smb,west
+C00792,"December 15, 2022",enterprise,west
+C00793,04/09/2022,consumer,east
+C00794,"October 27, 2022",smb,east
+C00795,"July 2, 2022",consumer,south
+C00796,2022-04-21,smb,south
+C00797,22/09/2022,smb,south
+C00798,"February 15, 2022",consumer,north
+C00799,2022-08-23T22:04:00Z,smb,south
+C00800,"March 13, 2022",consumer,west
+C00801,27/12/2022,consumer,north
+C00802,2022-08-12,consumer,east
+C00803,28/01/2022,smb,east
+C00804,2022-12-05,enterprise,west
+C00805,2022-11-25,smb,south
+C00806,"July 19, 2022",consumer,west
+C00807,"January 16, 2022",consumer,north
+C00808,"November 20, 2022",smb,west
+C00809,2022-03-21T06:21:00Z,consumer,east
+C00810,2022-04-13,smb,west
+C00811,"April 15, 2022",consumer,south
+C00812,06/09/2022,smb,east
+C00813,2022-02-18,consumer,east
+C00814,"March 9, 2022",consumer,east
+C00815,2022-08-18,smb,south
+C00816,2022-02-14T10:10:00Z,smb,south
+C00817,2022-02-11T20:44:00Z,consumer,west
+C00818,2022-05-13,smb,east
+C00819,"April 27, 2022",smb,east
+C00820,04/08/2022,enterprise,south
+C00821,2022-05-03,consumer,south
+C00822,2022-09-26T01:59:00Z,consumer,south
+C00823,2022-02-02,enterprise,south
+C00824,25/12/2022,smb,south
+C00825,2022-05-02T19:36:00Z,smb,east
+C00826,2022-03-24,consumer,west
+C00827,2022-02-15T18:25:00Z,enterprise,south
+C00828,11/03/2022,consumer,west
+C00829,2022-01-20,enterprise,west
+C00830,"June 15, 2022",enterprise,west
+C00831,2022-10-13,smb,north
+C00832,13/12/2022,consumer,west
+C00833,"September 3, 2022",smb,north
+C00834,2022-08-08,smb,east
+C00835,2022-04-22,consumer,north
+C00836,28/03/2022,enterprise,west
+C00837,2022-06-14,consumer,north
+C00838,"October 21, 2022",enterprise,east
+C00839,10/02/2022,consumer,north
+C00840,2022-09-07,smb,north
+C00841,2022-07-06,consumer,south
+C00842,2022-11-04T11:25:00Z,enterprise,west
+C00843,"February 5, 2022",smb,south
+C00844,"March 26, 2022",consumer,north
+C00845,09/11/2022,smb,west
+C00846,2022-07-02,smb,east
+C00847,2022-09-22T18:57:00Z,consumer,west
+C00848,"July 26, 2022",enterprise,west
+C00849,15/07/2022,enterprise,west
+C00850,2022-10-28T11:23:00Z,consumer,west
+C00851,03/10/2022,smb,west
+C00852,14/02/2022,smb,south
+C00853,2022-03-15,consumer,east
+C00854,2022-04-26,smb,east
+C00855,2022-02-13,smb,east
+C00856,2022-04-22T22:43:00Z,smb,north
+C00857,06/05/2022,enterprise,west
+C00858,2022-09-10T02:13:00Z,enterprise,east
+C00859,13/05/2022,enterprise,south
+C00860,2022-05-14,enterprise,north
+C00861,"January 14, 2022",consumer,east
+C00862,"February 4, 2022",enterprise,north
+C00863,26/07/2022,smb,west
+C00864,10/11/2022,enterprise,east
+C00865,02/04/2022,consumer,west
+C00866,2022-06-19,smb,east
+C00867,21/11/2022,consumer,south
+C00868,2022-08-20,smb,west
+C00869,2022-07-22T07:15:00Z,smb,south
+C00870,27/12/2022,consumer,west
+C00871,07/06/2022,consumer,south
+C00872,2022-01-18,consumer,south
+C00873,"December 5, 2022",smb,south
+C00874,2022-04-23T16:06:00Z,consumer,north
+C00875,2022-05-25,enterprise,west
+C00876,28/01/2022,consumer,east
+C00877,2022-04-10T14:10:00Z,enterprise,north
+C00878,10/06/2022,smb,north
+C00879,2022-03-03,consumer,west
+C00880,2022-01-23,smb,north
+C00881,02/11/2022,enterprise,north
+C00882,2022-02-05T07:21:00Z,consumer,north
+C00883,15/03/2022,consumer,west
+C00884,"August 1, 2022",enterprise,west
+C00885,24/10/2022,enterprise,west
+C00886,2022-12-24,enterprise,south
+C00887,2022-06-25,smb,east
+C00888,2022-10-20,enterprise,west
+C00889,2022-08-02,consumer,north
+C00890,"March 6, 2022",consumer,east
+C00891,2022-03-03T23:54:00Z,consumer,north
+C00892,2022-11-08,smb,south
+C00893,"April 1, 2022",enterprise,north
+C00894,2022-04-24T02:48:00Z,consumer,south
+C00895,2022-08-25T10:24:00Z,smb,south
+C00896,2022-07-20T04:32:00Z,enterprise,east
+C00897,2022-04-09T18:21:00Z,smb,south
+C00898,2022-11-25,enterprise,south
+C00899,2022-04-17T09:52:00Z,enterprise,south
+C00900,2022-01-13T04:25:00Z,enterprise,south

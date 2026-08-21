@@ -1,0 +1,236 @@
+---
+id: "3.4"
+phase: 3
+order_index: 4
+title: "Dimensionality reduction"
+slug: "dimensionality-reduction"
+prereqs: ["1.1", "3.3"]
+status: "published"
+goal: "You can reduce dimensions for the right reason, and you know which techniques are for looking and which are for modelling — and never confuse the two."
+resources:
+  primary:
+    name: "How to Use t-SNE Effectively — Distill"
+    url: "https://distill.pub/2016/misread-tsne/"
+    type: "article"
+    cost: "free"
+  alt:
+    name: "scikit-learn User Guide — Decomposing signals in components"
+    url: "https://scikit-learn.org/stable/modules/decomposition.html"
+    type: "docs"
+    cost: "free"
+session:
+  brief: "Run PCA on the digits and find out how many components you actually need. Then run t-SNE, produce a beautiful plot, and read the Distill article that explains why the distances in it mean nothing. The checklist enforces that t-SNE output never reaches a model."
+  difficulty: "hard"
+checklist:
+  - "On standardized digits (1797, 64), my first 2 principal components explain 0.2159 of the variance and the first 10 explain 0.5887"
+  - "Reaching 80% of variance needs 21 components, 90% needs 31, 95% needs 40, and 99% needs 54 of the 64"
+  - "I can state what it means that 64 dimensions compress to 40 for 95% — and my answer mentions that this is barely a reduction"
+  - "On standardized wine (178, 13), PC1 alone explains 0.3620 and PC1+PC2 explain 0.5541 — far more concentrated than digits"
+  - "I fitted PCA inside a cross-validation pipeline, not before it, and I can say what would leak if I had not"
+  - "My t-SNE plot of the digits shows visibly separated groups that correspond to digit identity"
+  - "I ran t-SNE at perplexity 5, 30 and 50 and the cluster sizes and spacings changed between them"
+  - "NO t-SNE or UMAP output is used as input to any model anywhere in my notebook — I checked, and this is the rule for this node"
+  - "I trained one classifier on raw features and one on PCA-reduced features and compared both accuracy and fit time"
+questions:
+  - prompt: "Appendix B of the build plan says t-SNE output must be used only for visualization, never as model input. Give the reason, and be specific about what property it lacks."
+    answer_key: >-
+      t-SNE is not a function. It is an optimisation that places points to
+      preserve local neighbourhood relationships, and its output depends on
+      initialisation, perplexity, learning rate, and the particular set of points
+      you gave it. There is no mapping from a new point into an existing
+      embedding — sklearn's implementation does not even offer a transform method
+      for exactly this reason. So a model trained on t-SNE coordinates cannot be
+      applied to anything, because you cannot compute the coordinates of a new
+      observation without rerunning the whole embedding, which produces a
+      different space. Worse, rerunning it including the new point changes the
+      coordinates of the old points, so the training data itself moves. Beyond the
+      practical impossibility, the embedding also distorts globally: distances
+      between clusters and the relative sizes of clusters are largely artefacts of
+      the perplexity, so any model reading those distances is reading noise. PCA
+      by contrast is a fixed linear projection you can save, apply to new data and
+      invert, which is what makes it usable in a pipeline.
+  - prompt: "The digits needed 40 of 64 components for 95% variance; wine reaches 55% in two. Explain what that difference says about the two datasets, and what it implies for whether PCA is worth doing on each."
+    answer_key: >-
+      It says the variance is spread very differently. In the wine data, thirteen
+      chemical measurements are strongly correlated — alcohol, phenols and
+      flavanoids move together — so a couple of underlying factors explain most of
+      the variation, and two components are a genuine summary. In the digits, each
+      of the 64 pixels carries somewhat independent information: neighbouring
+      pixels correlate, but there is no small set of global factors, because a
+      handwritten digit varies in many quasi-independent ways. Needing 40 of 64
+      components for 95% is barely a reduction and tells you the data is close to
+      full rank. The implication: PCA is worth doing on the wine data for
+      visualisation, compression and decorrelation, and is nearly pointless on the
+      digits for compression. It may still be worth doing on the digits for
+      denoising, since dropping the smallest components removes mostly noise, or
+      for speed if the model is expensive. The general lesson is to look at the
+      explained-variance curve before assuming reduction will help — the shape of
+      that curve is a property of the data, not something you control.
+  - prompt: "You fitted PCA inside the cross-validation pipeline. Describe precisely what leaks if you fit it before splitting, and estimate whether that leak would be large or small here."
+    answer_key: >-
+      PCA computes the principal directions from the covariance of whatever data
+      it is fitted on. Fitted on the full dataset, those directions are chosen
+      using the validation rows, so the projection has been optimised in part for
+      data the model is about to be evaluated on, and the resulting score is
+      optimistic. It is the same class of error as node 2.3's scaler leak: an
+      unsupervised transformation is still a transformation fitted on data. Size:
+      usually small, because PCA does not see the labels — it captures information
+      about the feature distribution rather than about the target — and with 1,797
+      rows the principal directions estimated from 80% of the data are close to
+      those from 100%. It becomes large exactly when you have few samples relative
+      to features, where the estimated directions are unstable and the fit on the
+      full data is meaningfully better aligned with the validation rows. So the
+      honest summary is that this leak is usually negligible and occasionally
+      serious, which is precisely why the discipline should be structural rather
+      than case-by-case — you should not have to estimate its size each time.
+  - prompt: "Someone shows you a t-SNE plot where two clusters are far apart and says the groups are very different. What do you say?"
+    answer_key: >-
+      That the distance between clusters in a t-SNE plot carries almost no
+      information. The algorithm optimises a divergence that is dominated by local
+      neighbourhood preservation, and it explicitly allows global structure to
+      distort — clusters that are adjacent in the original space can end up on
+      opposite sides of the plot, and the gap between two clusters can widen or
+      narrow simply by changing the perplexity, as the checklist has you observe.
+      Cluster sizes are equally untrustworthy: t-SNE tends to equalise apparent
+      density, so a tight group and a diffuse one can render at similar sizes. The
+      things you can legitimately read from the plot are that points appearing
+      together were near each other in the original space, and that some
+      separation exists at all. To claim two groups are very different, measure it
+      in the original space — the distance between their centroids, a classifier's
+      ability to separate them, or a statistical test on the features you care
+      about. The Distill article this node points at is a series of worked
+      examples of exactly this mistake.
+reflection_prompt: "You have now met three techniques that always produce output regardless of whether the output means anything — clustering, t-SNE, and a metric on imbalanced data. What is the general defence?"
+struggle_signals:
+  - "learner feeds t-SNE coordinates into a classifier"
+  - "learner reads cluster distances off a t-SNE plot"
+  - "learner picks a component count without looking at the variance curve"
+  - "learner fits PCA before the train/test split"
+---
+
+## Why this node exists
+
+Appendix B gives this node one hard rule: **t-SNE output is for visualization
+only, never as model input.** The checklist enforces it, and it is the most
+frequently violated piece of advice in this phase — usually by someone who has
+just produced a beautiful plot and reasonably wants to use it.
+
+The node also settles a question people usually answer by habit: how many
+components, and whether reduction helps at all. The answer is a property of your
+data and it takes one plot to find out.
+
+## The session
+
+### 1. PCA on the digits
+
+```python
+X = StandardScaler().fit_transform(load_digits().data)   # (1797, 64)
+pca = PCA().fit(X)
+np.cumsum(pca.explained_variance_ratio_)
+```
+
+| Components | Cumulative variance |
+|---|---|
+| 2 | 0.2159 |
+| 10 | 0.5887 |
+| 20 | 0.7931 |
+| 30 | 0.8932 |
+| 40 | 0.9508 |
+
+| Variance target | Components needed |
+|---|---|
+| 80% | 21 |
+| 90% | 31 |
+| 95% | **40** |
+| 99% | 54 |
+
+64 dimensions down to 40 is not a reduction worth having. Plot the cumulative
+curve — it is nearly a straight line, which is what "no low-dimensional
+structure" looks like.
+
+### 2. PCA on something that actually compresses
+
+```python
+X = StandardScaler().fit_transform(load_wine().data)      # (178, 13)
+```
+
+PC1 alone: **0.3620**. PC1 and PC2 together: **0.5541**. 95% needs 10 of 13.
+
+Two components carry more than half the variance here against 0.2159 for the
+digits. Same technique, completely different verdict. Question 2 asks what that
+says about the data.
+
+### 3. PCA in a pipeline
+
+```python
+Pipeline([("scale", StandardScaler()), ("pca", PCA(n_components=30)), ("clf", ...)])
+```
+
+Fit it inside cross-validation. Then compare against fitting PCA on everything
+first. The gap will be small — question 3 asks you to say why, and why the
+discipline still matters.
+
+Also compare fit times. On the digits, reducing to 30 components roughly halves
+the classifier's fit time for a very small accuracy cost, and that trade is often
+the actual reason to use PCA.
+
+### 4. t-SNE, and its warning label
+
+```python
+TSNE(n_components=2, perplexity=30, random_state=0).fit_transform(X)
+```
+
+Colour by the true digit. It will be a genuinely beautiful plot with clearly
+separated groups — far more separated than the 0.2159 of variance PCA's first
+two components capture, which is exactly why people love it.
+
+Now run it at perplexity 5 and 50. The clusters move, resize and reorder.
+
+Then read the Distill article. It is short, interactive, and it is the primary
+resource for this node for a reason.
+
+**Do not fit a model on the output.** The checklist has an item for this.
+
+## The distinction, stated once
+
+| | PCA | t-SNE / UMAP |
+|---|---|---|
+| Is a function you can reapply | yes | no (UMAP approximately) |
+| Has a `transform` for new data | yes | no |
+| Invertible | yes | no |
+| Preserves global distances | yes | no |
+| Deterministic | yes | no |
+| Safe as model input | **yes** | **no** |
+| Good for a picture | sometimes | yes |
+
+PCA is a projection. t-SNE is an illustration. Illustrations are valuable and
+they are not inputs.
+
+## Common walls
+
+**Your PCA gives one component with 99% of the variance.** You did not scale, so
+whichever feature has the largest units is the first principal component. PCA
+maximises variance, and variance is unit-dependent.
+
+**Your explained variance ratios do not sum to 1.** They only do if you keep all
+components. That is the point of the cumulative plot.
+
+**t-SNE takes minutes.** It is O(n²) in the naive form. Use the Barnes-Hut
+approximation, which is sklearn's default, and consider running PCA to 50
+components first — which is the standard recommendation and, unlike using t-SNE
+output in a model, is entirely legitimate.
+
+**Your t-SNE plot looks like a single blob.** Perplexity too low relative to
+dataset size, or too few iterations. Try perplexity 30 and at least 1000
+iterations.
+
+**You want to use UMAP because it has a `transform`.** It does, and that makes it
+genuinely more usable than t-SNE — but the same distortion caveats apply to
+distances in the embedding, and the transform is still stochastic in ways that
+make it awkward inside a serving pipeline. Use it for pictures too.
+
+## Before you move on
+
+Node 3.5 is the last node in this phase and is about finding the points that do
+not belong — which is the same geometric intuition, pointed at the opposite
+question.

@@ -1,0 +1,237 @@
+---
+id: "4.2"
+phase: 4
+order_index: 2
+title: "MLP from scratch, then in PyTorch"
+slug: "mlp-from-scratch"
+prereqs: ["4.1"]
+status: "published"
+goal: "You can write a multilayer perceptron twice — once by hand in numpy, once in PyTorch — and get the same answer from both."
+resources:
+  primary:
+    name: "PyTorch — Deep Learning with PyTorch: A 60 Minute Blitz"
+    url: "https://pytorch.org/tutorials/beginner/deep_learning_60min_blitz.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "Dive into Deep Learning — Multilayer Perceptrons, chapter 5"
+    url: "https://d2l.ai/chapter_multilayer-perceptrons/index.html"
+    type: "book"
+    cost: "free"
+session:
+  brief: "Write a two-layer network for MNIST in numpy with hand-derived gradients, then write the same network in PyTorch, initialise both identically, and require that their first ten loss values match to five decimal places. If they do not, one of them is wrong and you now have to find out which."
+  difficulty: "hard"
+checklist:
+  - "My MNIST training set is exactly 60,000 images of 28x28 and my test set is 10,000, with 10 classes"
+  - "My 784 -> 128 -> 10 network has exactly 101,770 parameters: 100,480 in layer one and 1,290 in layer two"
+  - "I counted those by hand from (784*128 + 128) and (128*10 + 10) before asking any framework"
+  - "My numpy implementation and my PyTorch implementation, given identical initial weights and identical batches, produce the same loss to at least 5 decimal places for the first 10 steps"
+  - "My numpy gradients pass gradcheck from node 1.2 on a small random batch"
+  - "A 784 -> 256 -> 128 -> 10 network has 235,146 parameters, and I verified my hand count against the framework"
+  - "The majority-class baseline on MNIST is about 11.24% accuracy, and I computed it before training anything"
+  - "My trained network reaches at least 95% test accuracy, and I reported test accuracy rather than training accuracy"
+  - "I can state the shape of every intermediate tensor for a batch of 64, and I verified each with a print or an assert"
+questions:
+  - prompt: "Your numpy and PyTorch losses matched to five decimal places for ten steps. Explain why that is a much stronger test than both models eventually reaching similar accuracy."
+    answer_key: >-
+      Two independent implementations agreeing on the exact trajectory can only
+      happen if they compute the same forward values and the same gradients at
+      every step. It is a test of the computation, not of the outcome. Eventual
+      accuracy is a weak test because neural networks are extraordinarily
+      forgiving: a gradient that is scaled by a constant, missing a term, or wrong
+      for one layer will often still train to a respectable accuracy, just more
+      slowly or to a slightly worse optimum — and you have no reference to notice
+      the difference against. Whole categories of bug survive that test, including
+      a misplaced factor in the softmax derivative, a bias gradient summed over
+      the wrong axis, and an activation derivative applied to the post-activation
+      value instead of the pre-activation one. Step-by-step agreement kills all of
+      them immediately, and it localises the bug too: the first step where the
+      losses diverge tells you which operation to look at.
+  - prompt: "Derive the gradient of the softmax-plus-cross-entropy combination with respect to the logits, and say why frameworks implement them as a single fused operation."
+    answer_key: >-
+      For cross-entropy loss with a one-hot target, the gradient of the loss with
+      respect to the logits is simply the predicted probabilities minus the
+      one-hot target — softmax(z) - y. It is remarkably clean, and it comes from
+      the softmax derivative and the log in the cross-entropy cancelling almost
+      everything. Frameworks fuse them for two reasons. The first is numerical
+      stability: computing softmax separately involves exponentiating logits,
+      which overflows for large values, and then taking a log of the result, which
+      underflows for small ones. The fused version applies the log-sum-exp trick,
+      subtracting the maximum logit before exponentiating, so the intermediate
+      never overflows and the log is never taken of a number rounded to zero. The
+      second is efficiency: the fused backward is one subtraction rather than
+      constructing the full Jacobian of the softmax, which is a matrix per sample.
+      This is why PyTorch's CrossEntropyLoss takes raw logits and why applying a
+      softmax before it is a common and quietly damaging mistake — it makes the
+      gradients much smaller and training much slower without raising anything.
+  - prompt: "You can state the shape of every intermediate tensor for a batch of 64. Walk through them, and say which single dimension convention causes the most bugs."
+    answer_key: >-
+      Input is (64, 784) — batch first, then flattened pixels. After the first
+      weight matrix of shape (784, 128) the result is (64, 128); the bias is (128,)
+      and broadcasts across the batch. After ReLU it is still (64, 128). After the
+      second weight matrix (128, 10) it is (64, 10), which are the logits, one row
+      of ten per image. The loss reduces that to a scalar. Every gradient has the
+      same shape as the thing it is a gradient of, so dW1 is (784, 128) and db1 is
+      (128,) — which is the invariant from node 1.1 and the fastest way to catch a
+      mistake. The convention that causes the most bugs is the batch dimension:
+      whether it comes first or last, and what happens when it disappears.
+      Indexing with an integer rather than a slice silently drops it, turning
+      (64, 784) into (784,), and everything downstream then broadcasts in a way
+      that produces plausible shapes and wrong numbers. The bias gradient is the
+      other reliable trap, because it must be summed over the batch axis and
+      summing over the wrong one gives a shape that sometimes still works.
+  - prompt: "Your network reaches 95%+ on MNIST. Explain why that number tells you almost nothing about whether your implementation is correct."
+    answer_key: >-
+      MNIST is very easy. Logistic regression on raw pixels reaches about 92%, a
+      k-nearest-neighbour classifier gets around 97% with no training at all, and
+      almost any two-layer network with roughly correct gradients will clear 95%.
+      The task has enormous redundancy and the classes are well separated, so the
+      accuracy is dominated by the dataset rather than by the quality of the
+      implementation. A network with a subtly wrong gradient — one scaled by a
+      constant, or missing the bias term's contribution — will still get there,
+      just after more epochs, and you would have no way of knowing. That is
+      exactly why this node requires the step-by-step comparison against PyTorch
+      and the gradcheck rather than an accuracy target: both are tests of
+      correctness, and accuracy is a test of the dataset. The same caution applies
+      to reading any benchmark number on a standard dataset, which is a habit
+      worth carrying into node 5.4.
+reflection_prompt: "At which step did your numpy and PyTorch losses first disagree, and what turned out to be wrong? If they matched immediately, say what you did differently from the last time you wrote something this fiddly."
+struggle_signals:
+  - "learner applies softmax before CrossEntropyLoss"
+  - "learner sums the bias gradient over the wrong axis"
+  - "learner declares success on accuracy without comparing implementations"
+  - "learner cannot state an intermediate tensor shape without running the code"
+---
+
+## Why this node exists
+
+Node 4.1 gave you an autograd engine over scalars. Real networks operate on
+tensors, and the step from one to the other is where most of the practical
+detail lives — batching, shapes, the softmax-cross-entropy pairing, and
+initialisation.
+
+Writing it twice and demanding agreement is the point. One implementation is
+never verified; two implementations that agree step by step are.
+
+## The session
+
+MNIST: 60,000 training images, 10,000 test, 28x28 grayscale, 10 classes.
+
+### 1. Count the parameters first
+
+Before writing anything:
+
+| Layer | Weights | Biases | Total |
+|---|---|---|---|
+| 784 → 128 | 784 × 128 = 100,352 | 128 | 100,480 |
+| 128 → 10 | 128 × 10 = 1,280 | 10 | 1,290 |
+| | | | **101,770** |
+
+And the deeper variant, 784 → 256 → 128 → 10: **235,146**. Work it out yourself
+and check against the framework at the end.
+
+### 2. The numpy implementation
+
+```python
+# forward
+z1 = X @ W1 + b1        # (64, 784) @ (784, 128) -> (64, 128)
+a1 = np.maximum(0, z1)
+z2 = a1 @ W2 + b2       # (64, 128) @ (128, 10) -> (64, 10)
+loss = softmax_cross_entropy(z2, y)
+
+# backward - derive these yourself
+dz2 = (softmax(z2) - onehot(y)) / batch_size
+dW2 = a1.T @ dz2
+db2 = dz2.sum(axis=0)
+da1 = dz2 @ W2.T
+dz1 = da1 * (z1 > 0)
+dW1 = X.T @ dz1
+db1 = dz1.sum(axis=0)
+```
+
+Every one of those lines is the chain rule from node 1.2, applied to arrays. The
+`.sum(axis=0)` on the biases is the accumulation from node 4.1 — the bias
+contributes to every row of the batch, so its gradient sums over them.
+
+Gradcheck it on a small batch before training.
+
+### 3. The PyTorch implementation
+
+```python
+model = nn.Sequential(
+    nn.Flatten(),
+    nn.Linear(784, 128),
+    nn.ReLU(),
+    nn.Linear(128, 10),
+)
+loss_fn = nn.CrossEntropyLoss()      # takes LOGITS. no softmax before it.
+```
+
+Then copy your numpy weights into it:
+
+```python
+with torch.no_grad():
+    model[1].weight.copy_(torch.tensor(W1.T))    # note the transpose
+    model[1].bias.copy_(torch.tensor(b1))
+```
+
+The transpose is not optional — PyTorch stores `Linear` weights as
+(out_features, in_features), which is the opposite of the numpy convention above.
+
+### 4. The test
+
+Same initial weights, same batches, same learning rate, plain SGD. Print both
+losses for ten steps.
+
+They must match to five decimal places.
+
+If they do not, the first step where they diverge tells you which operation to
+look at. That localisation is worth more than any amount of staring.
+
+### 5. Now train it
+
+Baseline first: the most common MNIST class is 1, with 6,742 of 60,000, so
+always guessing it gives about **11.24%** accuracy.
+
+Train to at least 95% **test** accuracy. Question 4 asks you why that number is
+much less impressive than it sounds.
+
+## Initialization matters more than it looks
+
+Initialise everything to zero and every hidden unit computes the same thing
+forever — the gradients are identical, so they stay identical, and 128 units
+behave as one.
+
+Initialise too large and ReLU units saturate or the loss becomes NaN on the first
+step.
+
+The standard answer is He initialisation for ReLU: normal with standard deviation
+`sqrt(2 / fan_in)`. For 784 inputs that is about 0.0505. Node 4.3 goes further
+into why.
+
+## Common walls
+
+**Your loss starts at some huge number.** With 10 balanced classes an untrained
+network should start near `ln(10) = 2.303`. Anything far above that means your
+initialisation is too large or your loss is misconfigured. This is the single
+best sanity check in deep learning and it costs one print statement.
+
+**PyTorch's loss is much lower than numpy's from step one.** You applied softmax
+before `CrossEntropyLoss`. It expects logits.
+
+**Your bias gradient has the wrong shape.** Sum over the batch axis, `axis=0`,
+giving shape (128,) not (64, 128).
+
+**Weights copied but losses differ.** The transpose. PyTorch is
+(out, in); the numpy code above is (in, out).
+
+**Your accuracy is 9.8% and stays there.** Zero initialisation, or a learning
+rate so large the first step destroyed the weights. Print the loss at step zero.
+
+## Before you move on
+
+Node 4.3 is about what happens when training does not work, and it introduces the
+discipline that Appendix B calls the point of that node: overfit a single batch
+to near-zero loss before you attempt anything real. It is also one of the three
+nodes scheduled for an execution runtime, because self-verification here is
+unusually untrustworthy.

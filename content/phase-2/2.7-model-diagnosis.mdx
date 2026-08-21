@@ -1,0 +1,230 @@
+---
+id: "2.7"
+phase: 2
+order_index: 7
+title: "Model diagnosis: bias, variance, error analysis"
+slug: "model-diagnosis"
+prereqs: ["2.6"]
+status: "published"
+goal: "You can look at a model's errors, group them, and name the single change most likely to help — instead of trying another algorithm."
+resources:
+  primary:
+    name: "scikit-learn User Guide — Validation curves and learning curves"
+    url: "https://scikit-learn.org/stable/modules/learning_curve.html"
+    type: "docs"
+    cost: "free"
+  alt:
+    name: "A Recipe for Training Neural Networks — Andrej Karpathy"
+    url: "https://karpathy.github.io/2019/04/25/recipe/"
+    type: "article"
+    cost: "free"
+session:
+  brief: "Take your fraud model and stop improving it. Instead, pull out every transaction it got wrong, group them by hand, and write a one-page error analysis that ends in a ranked list of what to do next. Use learning curves to decide whether more data would help before you go and ask for more data."
+  dataset: "/datasets/fraud-transactions.csv"
+  difficulty: "hard"
+checklist:
+  - "I pulled every misclassified transaction at my chosen threshold into a dataframe and it has both false positives and false negatives in it"
+  - "I grouped the errors into at most 6 named categories, and the largest category accounts for at least 20% of the errors"
+  - "For each category I wrote one sentence describing what the model got wrong and one naming what would fix it"
+  - "My learning curve plots training and validation score against training set size, with at least 5 sizes from 10% to 100%"
+  - "I can state from the learning curve whether more data would help this model, and my answer is supported by whether the two curves have converged"
+  - "My train-validation gap at full data is under 0.1 PR AUC, so my dominant problem is bias rather than variance — or I found the opposite and can say so"
+  - "I ran a validation curve over max_depth and identified the value where validation score peaks"
+  - "My ranked list of next actions has at least 3 items, and the top item is NOT 'try a different algorithm'"
+  - "I estimated how much PR AUC the top item would recover, using the size of the error category it addresses"
+questions:
+  - prompt: "Your learning curve either converged or it did not. Explain what each case tells you, and say why this is worth plotting before asking for more data."
+    answer_key: >-
+      If the training and validation curves have converged — met and flattened —
+      then the model is limited by its own capacity or by the information in the
+      features, not by the number of rows. More data will move nothing, because
+      the model already extracts everything it can from the data it has. If there
+      is still a gap and the validation curve is still rising as data is added,
+      the model is variance-limited and more data will help, roughly by the amount
+      the curve looks likely to keep climbing. This is worth plotting first
+      because acquiring data is usually the most expensive action available —
+      labelling costs money, waiting costs months, and buying costs both — and it
+      is the action people request most readily because it feels safe. Ten minutes
+      of plotting can save a quarter of collection effort that was never going to
+      pay. The converse case matters too: if the curve says more data helps, that
+      is a strong, defensible argument for a budget, and having the plot makes the
+      case far better than an intuition does.
+  - prompt: "Distinguish bias from variance using your own model's numbers, and say what you would do about each — being concrete about which lever moves which."
+    answer_key: >-
+      Bias is error the model makes because it cannot represent the relationship;
+      it shows up as poor performance on the training data itself. Variance is
+      error from fitting noise; it shows up as a gap between training and
+      validation performance. My model trains to near-perfect and validates
+      around 0.90 PR AUC, so measured naively the gap is large — but the training
+      score is pinned at 1.0 because boosting can always memorise, so the more
+      informative comparison is between validation performance and the achievable
+      ceiling. For genuine high variance the levers are more data, stronger
+      regularisation, fewer or shallower trees, more aggressive subsampling, and
+      simplifying the feature set. For high bias they are the opposite: more
+      capacity, deeper trees, more iterations, and above all better features,
+      since a model cannot represent a relationship whose inputs it does not have.
+      The reason to diagnose before acting is that the two prescriptions are
+      opposites, and applying the wrong one makes things worse rather than merely
+      failing to help.
+  - prompt: "Describe the largest category of errors your model makes, and explain why grouping errors by hand finds things that aggregate metrics cannot."
+    answer_key: >-
+      Any accurate description of a real group is a good answer — for instance,
+      low-value fraudulent transactions from domestic cards during business hours,
+      which look exactly like ordinary purchases in every available feature. The
+      reason hand-grouping finds what metrics cannot is that a metric is a single
+      number over all rows, and it therefore averages away structure. A model can
+      score 0.93 PR AUC while being systematically wrong about one identifiable
+      slice, and the metric will not say so, because the slice is small relative
+      to the whole. Errors are almost never uniformly distributed; they cluster
+      around cases the features do not describe, or around a subpopulation
+      underrepresented in training. Once you can name the cluster, you can usually
+      name the fix, and the fix is typically a feature or a data change rather
+      than a model change. This is also how fairness problems are found, since
+      "the model is worse for this group" is exactly a clustered error pattern
+      that aggregate performance hides.
+  - prompt: "Your ranked list of next actions does not start with 'try a different algorithm'. Justify that ordering to someone who wants to try a neural network."
+    answer_key: >-
+      Because the algorithm is rarely the binding constraint on tabular data, and
+      the evidence is already in hand: node 2.6 showed gradient boosting and a
+      random forest within a hundredth of each other on this dataset, which means
+      the choice between two quite different model families was worth almost
+      nothing. A third family is unlikely to behave differently, and neural
+      networks in particular are known to underperform boosted trees on tabular
+      problems of this size. Meanwhile the error analysis has identified a
+      concrete group the model gets wrong for a concrete reason, and addressing it
+      usually means adding information the model does not currently have — a
+      feature capturing behaviour over time, a join to another table, a better
+      label — which changes what is representable at all rather than how it is
+      represented. The general ordering: fix the data, then the features, then the
+      framing, then the threshold and the decision policy, and only then the model
+      family. If someone still wants to try the network, the right response is to
+      timebox it and measure it against the same baseline, because it is cheap and
+      being wrong about this is also possible.
+reflection_prompt: "What did you find in the errors that you would not have guessed from the metrics? If you found nothing, say what that suggests about how you grouped them."
+struggle_signals:
+  - "learner responds to a plateau by trying another algorithm"
+  - "learner never looks at an individual misclassified row"
+  - "learner asks for more data without plotting a learning curve"
+  - "learner confuses a train-test gap with high bias"
+---
+
+## Why this node exists
+
+At some point every model stops improving, and the question becomes what to do
+next. Most people answer it by trying another algorithm, because that is the
+action with the clearest next step.
+
+It is almost always the wrong answer. Node 2.6 already gave you the evidence:
+two quite different model families landed within 0.006 PR AUC of each other. The
+remaining improvement is not in the model.
+
+This node is the one that separates people who tune models from people who fix
+problems.
+
+## The session
+
+Take the fraud model from node 2.6. Do not improve it. Diagnose it.
+
+### 1. Look at the errors. Actually look.
+
+```python
+errors = df.loc[y != predicted].copy()
+errors["score"] = probabilities[y != predicted]
+errors["kind"] = np.where(errors.is_fraud == 1, "missed fraud", "false alarm")
+```
+
+Now read them. Twenty rows, by eye, one at a time. This is not a metaphor for
+something you do with code — open the dataframe and look at individual
+transactions.
+
+### 2. Group them by hand
+
+Into at most six named categories. Real ones from this dataset tend to include:
+
+- domestic, low-value, business-hours fraud that looks entirely ordinary
+- legitimate travel purchases that trip the foreign-country signal
+- legitimate high-value electronics purchases
+- shared-device families flagged by the card-count feature
+
+For each: **what did the model get wrong, and what would fix it?** One sentence
+each. The fix is usually a feature, not a model.
+
+### 3. Learning curve — before you ask for more data
+
+```python
+from sklearn.model_selection import learning_curve
+```
+
+Plot training and validation score against training set size, at least five
+sizes from 10% to 100%.
+
+Read it:
+
+| What you see | What it means | What to do |
+|---|---|---|
+| Curves converged and flat | more data will not help | better features, or accept the ceiling |
+| Big gap, validation still rising | variance-limited | more data, or regularise |
+| Both low and converged | bias-limited | more capacity, better features |
+
+This plot is a budget argument. Make it before you spend somebody's money.
+
+### 4. Validation curve over one parameter
+
+Sweep `max_depth` and plot train and validation score against it. You will see
+the classic shape: validation rises, peaks, then falls as the model starts
+memorising.
+
+The peak is your answer for that parameter. Note how much it is worth — usually
+much less than the error analysis is.
+
+### 5. The deliverable
+
+One page, ending in a ranked list of next actions with an estimate attached:
+
+> 1. Add velocity features (transactions per card in the last hour). Addresses
+>    the 34% of misses that are ordinary-looking domestic fraud. Estimated
+>    recovery: 0.02 to 0.04 PR AUC.
+> 2. ...
+
+The estimate is the part that makes it a plan rather than a wish. You can get it
+from the size of the error category: fixing all of a group that is 30% of your
+errors is an upper bound on what it can buy.
+
+**"Try a different algorithm" may not be item 1.** The checklist enforces this.
+
+## The order to work in
+
+1. **Data.** Is it correct? Are the labels right? Node 0.3's discipline.
+2. **Features.** Does the model have the information the task requires?
+3. **Framing.** Is the label, cutoff and population right? Node 2.1.
+4. **Threshold and policy.** Node 2.4.
+5. **Model family and hyperparameters.** Last, and usually worth the least.
+
+Almost everyone works this list bottom-up. Working it top-down is the single
+biggest difference in effectiveness between practitioners.
+
+## Common walls
+
+**Your errors all look the same to you.** Sort by model score. The
+confidently-wrong ones are the informative ones — a false negative scored 0.02 is
+a different failure from one scored 0.48.
+
+**Your learning curve is noisy and hard to read.** With 222 positives, small
+training fractions have very few. Use more CV folds per point, plot the shaded
+standard deviation, and treat the shape rather than the individual points as the
+signal.
+
+**Your train-validation gap is huge and you conclude high variance.** With
+boosting the training score is pinned at 1.0 by construction, so that gap is not
+diagnostic on its own. Compare validation performance against a plausible ceiling
+instead, and use the learning curve's *shape*.
+
+**You cannot estimate what a fix would recover.** Upper bound it: if a category
+is 30% of your errors and you fixed all of it, what would the metric become? That
+number is enough to rank actions, which is all the estimate has to do.
+
+## Before you move on
+
+Phase 3 is entirely about the thing this node keeps pointing at — the features.
+Node 3.1 builds them under node 2.3's leakage discipline, which is where most of
+the remaining improvement on a problem like this actually lives.
