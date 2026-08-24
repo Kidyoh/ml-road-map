@@ -19,7 +19,8 @@
     "scaffold:planned": "tsx scripts/scaffold-planned-nodes.ts",
     "check:gating": "cross-env NODE_OPTIONS=--conditions=react-server tsx scripts/check-gating.ts",
     "check:locking": "cross-env NODE_OPTIONS=--conditions=react-server tsx scripts/check-locking.ts",
-    "check:social": "cross-env NODE_OPTIONS=--conditions=react-server tsx scripts/check-social.ts"
+    "check:social": "cross-env NODE_OPTIONS=--conditions=react-server tsx scripts/check-social.ts",
+    "check:admin": "cross-env NODE_OPTIONS=--conditions=react-server tsx scripts/check-admin.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
