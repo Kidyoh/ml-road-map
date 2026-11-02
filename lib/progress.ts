@@ -23,6 +23,7 @@ import {
   nodes,
   questionAttempts,
 } from "@/db/schema";
+import { isGuestUser } from "@/lib/guest";
 
 export type NodeState =
   | "hidden"
@@ -272,6 +273,8 @@ export async function buildGraph(
   const passed = new Set([...earned, ...assumed]);
 
   // --- derive every state -------------------------------------------------
+  // The shared guest account (the 904 Advisory link) sees every node open.
+  const unlockAll = isGuestUser(userId);
   const memo = new Map<string, number>();
   const summaries: NodeSummary[] = allNodes.map((node) => {
     const tally = tallies.get(node.id)!;
@@ -281,7 +284,7 @@ export async function buildGraph(
     let state: NodeState;
     if (passed.has(node.id)) {
       state = "passed";
-    } else if (distance === 0) {
+    } else if (distance === 0 || unlockAll) {
       state = progress?.openedAt ? "in_progress" : "open";
     } else if (distance === 1) {
       state = "fogged";
