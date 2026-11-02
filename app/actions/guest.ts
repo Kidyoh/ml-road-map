@@ -8,7 +8,7 @@ export type GuestSignInState = { error: string | null };
 
 /**
  * Guest pass sign-in. On success signIn throws Next's redirect, which must be
- * rethrown; only Auth.js errors (wrong email or password) become a message.
+ * rethrown; only Auth.js errors (wrong username or password) become a message.
  */
 export async function guestSignIn(
   _prev: GuestSignInState,
@@ -16,13 +16,13 @@ export async function guestSignIn(
 ): Promise<GuestSignInState> {
   try {
     await signIn("guest", {
-      email: formData.get("email"),
+      username: formData.get("username"),
       password: formData.get("password"),
       redirectTo: "/",
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: "That guest email and password did not match." };
+      return { error: "That guest username and password did not match." };
     }
     throw error;
   }

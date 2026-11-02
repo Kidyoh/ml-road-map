@@ -18,18 +18,21 @@ export function GuestSignInForm() {
   return (
     <form action={action} className="flex flex-col gap-2">
       <div className="flex flex-col gap-1">
-        <Label htmlFor="guest-email">Guest email</Label>
+        <Label htmlFor="guest-username">Username</Label>
         <input
-          id="guest-email"
-          name="email"
-          type="email"
+          id="guest-username"
+          name="username"
+          type="text"
+          placeholder="guest@roadmap"
           autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
           required
           className={INPUT_CLASS}
         />
       </div>
       <div className="flex flex-col gap-1">
-        <Label htmlFor="guest-password">Guest password</Label>
+        <Label htmlFor="guest-password">Password</Label>
         <input
           id="guest-password"
           name="password"

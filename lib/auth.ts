@@ -17,15 +17,18 @@ import {
 
 /**
  * Guest pass: one shared account for people who will not (or cannot) connect
- * GitHub. Enabled only when both GUEST_EMAIL and GUEST_PASSWORD are set, so a
- * deployment without them has no password login at all.
+ * GitHub. The username is fixed to "guest@roadmap" (not a real email address);
+ * the password comes from GUEST_PASSWORD. Without it there is no password
+ * login at all.
  *
  * Everyone who uses the guest pass shares the same user row, and therefore the
  * same progress. That is the point - it is a way to look around, not a way to
  * own an account.
  */
+export const GUEST_USERNAME = "guest@roadmap";
+
 export function guestPassEnabled(): boolean {
-  return Boolean(process.env.GUEST_EMAIL && process.env.GUEST_PASSWORD);
+  return Boolean(process.env.GUEST_PASSWORD);
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -67,20 +70,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       id: "guest",
       name: "Guest pass",
       credentials: {
-        email: { label: "Email", type: "email" },
+        username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const guestEmail = process.env.GUEST_EMAIL;
         const guestPassword = process.env.GUEST_PASSWORD;
-        if (!guestEmail || !guestPassword) return null;
+        if (!guestPassword) return null;
 
-        const email = String(credentials?.email ?? "").trim().toLowerCase();
+        const username = String(credentials?.username ?? "").trim().toLowerCase();
         const password = String(credentials?.password ?? "");
-        // Evaluate both so a wrong email and a wrong password take equal time.
-        const emailOk = safeEqual(email, guestEmail.trim().toLowerCase());
+        // Evaluate both so a wrong username and a wrong password take equal time.
+        const usernameOk = safeEqual(username, GUEST_USERNAME);
         const passwordOk = safeEqual(password, guestPassword);
-        if (!emailOk || !passwordOk) return null;
+        if (!usernameOk || !passwordOk) return null;
+
+        // The guest row keys on the users.email column, which is just a
+        // unique identifier here - nothing is ever sent to it.
+        const email = GUEST_USERNAME;
 
         const [existing] = await db
           .select()
