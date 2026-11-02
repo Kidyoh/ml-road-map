@@ -23,7 +23,7 @@ export function GuestSignInForm() {
           id="guest-username"
           name="username"
           type="text"
-          placeholder="guest@roadmap"
+          placeholder="guest@mlroadmap"
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}

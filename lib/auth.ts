@@ -17,7 +17,7 @@ import {
 
 /**
  * Guest pass: one shared account for people who will not (or cannot) connect
- * GitHub. The username is fixed to "guest@roadmap" (not a real email address);
+ * GitHub. The username is fixed to "guest@mlroadmap" (not a real email address);
  * the password comes from GUEST_PASSWORD. Without it there is no password
  * login at all.
  *
@@ -25,7 +25,7 @@ import {
  * same progress. That is the point - it is a way to look around, not a way to
  * own an account.
  */
-export const GUEST_USERNAME = "guest@roadmap";
+export const GUEST_USERNAME = "guest@mlroadmap";
 
 export function guestPassEnabled(): boolean {
   return Boolean(process.env.GUEST_PASSWORD);
