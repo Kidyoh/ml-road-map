@@ -9,6 +9,11 @@ import GitHub from "next-auth/providers/github";
 
 import { db } from "@/db";
 import {
+  GUEST_DISPLAY_NAME,
+  GUEST_USER_ID,
+  GUEST_USERNAME,
+} from "@/lib/guest";
+import {
   accounts,
   sessions,
   users,
@@ -16,19 +21,21 @@ import {
 } from "@/db/schema";
 
 /**
- * Guest pass: one shared account for people who will not (or cannot) connect
- * GitHub. The username is fixed to "guest@mlroadmap" (not a real email address);
- * the password comes from GUEST_PASSWORD. Without it there is no password
- * login at all.
+ * Guest link: one shared account (shown as "904Advisory") for people who will
+ * not connect GitHub. There is no password - whoever has the secret link
+ * /join/<GUEST_LINK_TOKEN> can sign in. Unset the variable and the link stops
+ * working; change it and every link shared so far stops working.
  *
- * Everyone who uses the guest pass shares the same user row, and therefore the
- * same progress. That is the point - it is a way to look around, not a way to
- * own an account.
+ * Everyone who uses the link shares the same user row, and therefore the same
+ * progress. Every node is unlocked for that account (see lib/guest.ts). The row keys on users.email = "guest@mlroadmap", which is only a
+ * unique identifier - nothing is ever sent to it.
  */
-export const GUEST_USERNAME = "guest@mlroadmap";
 
-export function guestPassEnabled(): boolean {
-  return Boolean(process.env.GUEST_PASSWORD);
+/** True only for the configured token, compared in constant time. */
+export function isValidGuestToken(token: string): boolean {
+  const expected = process.env.GUEST_LINK_TOKEN;
+  if (!expected) return false;
+  return safeEqual(token, expected);
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -47,7 +54,7 @@ const adapter = DrizzleAdapter(db, {
 });
 
 /**
- * Auth.js v5. GitHub, plus the optional guest pass above - no password flows to build (spec section 3).
+ * Auth.js v5. GitHub, plus the optional guest link above. No password flows (spec section 3).
  * The build plan lists Google too. Adding it back is three edits: the provider
  * here, the union in components/auth-buttons.tsx, and a button on the landing
  * and map pages. The provider list is not read dynamically, so it is worth
@@ -68,36 +75,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
     Credentials({
       id: "guest",
-      name: "Guest pass",
+      name: "Guest link",
       credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" },
+        token: { label: "Token", type: "text" },
       },
       async authorize(credentials) {
-        const guestPassword = process.env.GUEST_PASSWORD;
-        if (!guestPassword) return null;
-
-        const username = String(credentials?.username ?? "").trim().toLowerCase();
-        const password = String(credentials?.password ?? "");
-        // Evaluate both so a wrong username and a wrong password take equal time.
-        const usernameOk = safeEqual(username, GUEST_USERNAME);
-        const passwordOk = safeEqual(password, guestPassword);
-        if (!usernameOk || !passwordOk) return null;
-
-        // The guest row keys on the users.email column, which is just a
-        // unique identifier here - nothing is ever sent to it.
-        const email = GUEST_USERNAME;
-
+        if (!isValidGuestToken(String(credentials?.token ?? ""))) return null;
         const [existing] = await db
           .select()
           .from(users)
-          .where(eq(users.email, email))
+          .where(eq(users.id, GUEST_USER_ID))
           .limit(1);
         if (existing) return existing;
 
         const [created] = await db
           .insert(users)
-          .values({ email, name: "Guest" })
+          .values({
+            id: GUEST_USER_ID,
+            email: GUEST_USERNAME,
+            name: GUEST_DISPLAY_NAME,
+          })
           .returning();
         return created;
       },

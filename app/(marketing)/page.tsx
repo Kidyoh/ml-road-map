@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { SignInButton, SignOutButton } from "@/components/auth-buttons";
-import { GuestSignInForm } from "@/components/guest-sign-in-form";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { auth, guestPassEnabled } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 
 const PHASES = [
   { n: 0, name: "Tooling floor", count: 5 },
@@ -89,20 +88,12 @@ export default async function LandingPage() {
           <CardHeader>
             <CardTitle>Sign in to start</CardTitle>
             <CardDescription>
-              Progress is tied to an account. Connect GitHub, or use the
-              guest pass if you have one.
+              Progress is tied to an account. No passwords &mdash; GitHub
+              only.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             <SignInButton provider="github">Continue with GitHub</SignInButton>
-            {guestPassEnabled() ? (
-              <>
-                <p className="text-muted-foreground my-2 text-center text-xs">
-                  or use the guest pass
-                </p>
-                <GuestSignInForm />
-              </>
-            ) : null}
           </CardContent>
         </Card>
       )}
