@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { setEntryTrack } from "@/app/actions/progress";
 import { SignInButton, SignOutButton } from "@/components/auth-buttons";
+import { GuestSignInForm } from "@/components/guest-sign-in-form";
 import { EntryTrackPicker } from "@/components/graph/entry-track-picker";
 import { NodeTile } from "@/components/graph/node-tile";
 import { PhaseRing } from "@/components/graph/phase-ring";
@@ -17,7 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { auth } from "@/lib/auth";
+import { auth, guestPassEnabled } from "@/lib/auth";
 import { loadNodeBySlug } from "@/lib/content";
 import { isPublished } from "@/lib/content-schema";
 import { buildGraph, summarisePhases, type EntryTrack } from "@/lib/progress";
@@ -105,6 +106,14 @@ export default async function MapPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             <SignInButton provider="github">Continue with GitHub</SignInButton>
+            {guestPassEnabled() ? (
+              <>
+                <p className="text-muted-foreground my-2 text-center text-xs">
+                  or use the guest pass
+                </p>
+                <GuestSignInForm />
+              </>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}
