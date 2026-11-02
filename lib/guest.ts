@@ -8,10 +8,10 @@
 export const GUEST_USER_ID = "guest-mlroadmap";
 /** Stored in users.email as a unique identifier only - never mailed. */
 export const GUEST_USERNAME = "guest@mlroadmap";
-export const GUEST_DISPLAY_NAME = "904Advisory";
+export const GUEST_DISPLAY_NAME = "904 Advisory";
 
 /**
- * The guest account is for reviewers (904Advisory) who need to see every node,
+ * The guest account is for reviewers (904 Advisory) who need to see every node,
  * so nothing is locked for it. Every other account keeps prerequisite gating.
  */
 export function isGuestUser(userId: string | null | undefined): boolean {

@@ -21,7 +21,7 @@ import {
 } from "@/db/schema";
 
 /**
- * Guest link: one shared account (shown as "904Advisory") for people who will
+ * Guest link: one shared account (shown as "904 Advisory") for people who will
  * not connect GitHub. There is no password - whoever has the secret link
  * /join/<GUEST_LINK_TOKEN> can sign in. Unset the variable and the link stops
  * working; change it and every link shared so far stops working.

@@ -273,7 +273,7 @@ export async function buildGraph(
   const passed = new Set([...earned, ...assumed]);
 
   // --- derive every state -------------------------------------------------
-  // The shared guest account (the 904Advisory link) sees every node open.
+  // The shared guest account (the 904 Advisory link) sees every node open.
   const unlockAll = isGuestUser(userId);
   const memo = new Map<string, number>();
   const summaries: NodeSummary[] = allNodes.map((node) => {
