@@ -2,14 +2,22 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { SignOutButton } from "@/components/auth-buttons";
+import { claimCertificate } from "@/app/actions/exams";
 import { ActivityHeatmap } from "@/components/profile/activity-heatmap";
+import { ExamRecord } from "@/components/profile/exam-record";
 import { PassedOverTime } from "@/components/profile/passed-over-time";
 import { PhaseBreakdown } from "@/components/profile/phase-breakdown";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { buildActivity } from "@/lib/activity";
+import {
+  certificateStatus,
+  loadCertificateForUser,
+  MAX_CERTIFICATE_NAME,
+} from "@/lib/exams";
 import { buildGraph, summarisePhases } from "@/lib/progress";
 
 export const metadata = {
@@ -32,10 +40,14 @@ export default async function ProfilePage() {
 
   const user = session.user;
 
-  const [graph, activity] = await Promise.all([
+  const [graph, activity, certificate] = await Promise.all([
     buildGraph(user.id, user.entryTrack ?? null),
     buildActivity(user.id),
+    loadCertificateForUser(user.id),
   ]);
+
+  const examsPassed = graph.exams.filter((e) => e.state === "passed").length;
+  const certStatus = certificateStatus(graph, user.id);
 
   const phases = summarisePhases(graph);
   const passed = graph.nodes.filter((n) => n.state === "passed");
@@ -78,11 +90,14 @@ export default async function ProfilePage() {
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-6 border-y py-6 sm:grid-cols-4">
+      <section className="grid grid-cols-2 gap-6 border-y py-6 sm:grid-cols-5">
         <Stat value={`${earned.length}/40`} label="nodes passed" />
         <Stat value={`${itemsDone}/${itemsTotal}`} label="checkpoint items ticked" />
         <Stat value={activity.activeDays} label="days active" />
         <Stat value={inProgress.length} label="nodes in progress" />
+        {graph.exams.length > 0 ? (
+          <Stat value={`${examsPassed}/${graph.exams.length}`} label="exams passed" />
+        ) : null}
       </section>
 
       {passed.length > earned.length ? (
@@ -92,6 +107,79 @@ export default async function ProfilePage() {
           passed because your entry track assumes them. Those are not included in
           the figure above.
         </p>
+      ) : null}
+
+      {graph.exams.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium tracking-widest uppercase">
+              Exams
+            </CardTitle>
+            <p className="text-muted-foreground text-sm">
+              One at the end of each phase, then the final. Passing one opens
+              the phase after it.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ExamRecord exams={graph.exams} />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {graph.exams.length > 0 ? (
+        <Card id="certificate" className={certificate ? "border-primary/50" : undefined}>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium tracking-widest uppercase">
+              Certificate
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 text-sm leading-relaxed">
+            {certificate ? (
+              <>
+                <p className="max-w-prose">
+                  Issued to {certificate.name}. The link is public to anyone you
+                  give it to, and shows your name, the date and your exam scores.
+                </p>
+                <Button asChild size="sm" className="w-fit">
+                  <Link href={`/certificate/${certificate.id}`}>View certificate</Link>
+                </Button>
+              </>
+            ) : certStatus.eligible ? (
+              <form action={claimCertificate} className="flex flex-col gap-3">
+                <p className="max-w-prose">
+                  You have passed the final exam and the capstone. Choose the
+                  name to print &mdash; it cannot be changed afterwards.
+                </p>
+                <label className="flex max-w-sm flex-col gap-1.5">
+                  <span className="text-muted-foreground text-xs">Name on the certificate</span>
+                  <input
+                    name="name"
+                    type="text"
+                    required
+                    maxLength={MAX_CERTIFICATE_NAME}
+                    defaultValue={user.name ?? ""}
+                    autoComplete="name"
+                    className="border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 h-9 rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3"
+                  />
+                </label>
+                <Button type="submit" size="sm" className="w-fit">
+                  Issue my certificate
+                </Button>
+              </form>
+            ) : (
+              <>
+                <p className="text-muted-foreground max-w-prose">
+                  Issued once the whole roadmap is done. Still to do:
+                </p>
+                <ul className="text-muted-foreground list-disc pl-5">
+                  {certStatus.missing.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </CardContent>
+        </Card>
       ) : null}
 
       <Card>

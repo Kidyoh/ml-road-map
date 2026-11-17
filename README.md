@@ -5,14 +5,61 @@ deployed system — 40 nodes across 8 phases. The full specification lives in
 [docs/ML_ROADMAP_BUILD_PLAN.md](docs/ML_ROADMAP_BUILD_PLAN.md); read it before
 changing anything, especially section 2.
 
-**Current state: M0–M6 complete.** Auth, the content pipeline, node pages,
-progress persistence with prerequisite gating, the map, the profile page, all
-40 nodes written, and the social layer.
+**Current state: M0–M6 complete, plus exams.** Auth, the content pipeline, node
+pages, progress persistence with prerequisite gating, the map, the profile page,
+all 40 nodes written, the social layer, and a timed auto-graded exam at the end
+of every phase with a final exam and a completion certificate.
 
 What is left is not code. **M7** is a pilot — onboard 3 to 5 real learners and
 watch `struggle_events` rather than asking them how it is going. **M8** is the
 in-browser execution runtime, and the plan is explicit that it must not start
 before M7 proves people actually reach nodes 2.3, 4.1 and 4.3.
+
+## Exams
+
+Every phase 0-6 ends in a timed exam, and a final exam stands in front of the
+capstone. They are the one part of the roadmap the learner does not grade
+themselves.
+
+- **Content** is MDX in `content/exams/` (`phase-0.mdx` … `phase-6.mdx`,
+  `final.mdx`), validated by [lib/exam-schema.ts](lib/exam-schema.ts). Exams
+  have no database tables: an attempt stores a snapshot of the paper it was
+  given, so editing a question can never regrade a past attempt. No reseed is
+  needed after editing an exam.
+- **Never multiple choice** (non-negotiable 4 still holds). Every answer is a
+  number checked against a tolerance, or a short exact string. The learner
+  computes it with whatever tools they like.
+- **Variants.** Each question has at least two variants - same skill, different
+  numbers. A retake always draws a different variant, so the answer to the last
+  paper is no use on the next.
+- **The final** has no questions of its own. It draws `draw_per_phase`
+  questions from every phase exam.
+- **Gating is derived**, like everything else (non-negotiable 2). `buildGraph`
+  reads attempts on every call: a node in phase N+1 needs the phase N exam
+  passed as well as its prerequisites. A phase exam opens when every published
+  node in its phase is passed. An entry track waives the exams for the phases
+  it skips. A node a learner had already opened before a gate applied stays
+  open - nobody is locked out of work in progress.
+- **Timing** is enforced on the server (`exam_attempts.deadline_at`). The
+  countdown in the browser is a courtesy. A late or abandoned attempt counts as
+  not passed, and a failed attempt starts a cooldown.
+- **Answer keys** never reach the browser for an exam that is not passed -
+  `toAttemptView` in [lib/exams.ts](lib/exams.ts) is the only way out. After a
+  fail the learner sees which questions were wrong and which nodes they test.
+- A missed question is written to `struggle_events` as `exam_question_missed`
+  against the node it covers.
+- **Certificate**: final exam plus capstone passed. Issued once from the
+  profile page, public at `/certificate/<id>`.
+
+`pnpm check:exam-logic` checks every answer key against the grader and the
+whole state machine with no database (it runs in CI). `pnpm check:exams` walks
+a throwaway user through a timed-out, a failed and a passing attempt against
+the real database.
+
+When writing a question: compute the key with code, say in the prompt exactly
+how to round, and set `tolerance` to half a unit in the last place. The admin
+panel lists the most-missed questions - a question nearly everyone misses has a
+bad key more often than it has a hard idea.
 
 ## Setup
 

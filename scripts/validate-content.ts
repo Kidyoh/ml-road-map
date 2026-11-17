@@ -17,6 +17,14 @@ import {
   type LoadedNode,
 } from "../lib/content";
 import { auditChecklistItem, isPublished } from "../lib/content-schema";
+import {
+  ExamContentError,
+  isFinalExam,
+  isPhaseExam,
+  loadAllExams,
+  type LoadedExam,
+} from "../lib/exam-content";
+import { gradeResponse, normaliseText } from "../lib/exam-schema";
 
 const STRICT = process.argv.includes("--strict");
 
@@ -195,6 +203,125 @@ function reportCoverage(nodes: LoadedNode[]) {
   );
 }
 
+/**
+ * Exams. Per-file shape is Zod's job (lib/exam-schema.ts); this is everything
+ * that needs more than one file, plus the checks that keep an auto-graded
+ * question honest - a question the grader cannot mark right is a question that
+ * fails every learner who answers it correctly.
+ */
+function checkExams(exams: LoadedExam[], nodes: LoadedNode[]) {
+  const nodeById = new Map(nodes.map((n) => [n.frontmatter.id, n.frontmatter]));
+  const phaseExams = exams.filter(isPhaseExam);
+  const finals = exams.filter(isFinalExam);
+
+  for (const exam of phaseExams) {
+    const { phase, questions } = exam.frontmatter;
+    const seen = new Set<string>();
+    const covered = new Set<string>();
+
+    for (const q of questions) {
+      const where = `${exam.filePath} [${q.id}]`;
+
+      if (seen.has(q.id)) error(where, `duplicate question id "${q.id}"`);
+      seen.add(q.id);
+
+      const node = nodeById.get(q.covers);
+      if (!node) {
+        error(where, `covers "${q.covers}", which does not exist`);
+      } else if (node.phase !== phase) {
+        error(where, `covers "${q.covers}", which is in phase ${node.phase}, not ${phase}`);
+      } else if (!isPublished(node)) {
+        error(where, `covers "${q.covers}", which is not published - nobody can have studied it`);
+      } else {
+        covered.add(q.covers);
+      }
+
+      const prompts = new Set<string>();
+      const answers = new Set<string>();
+
+      q.variants.forEach((variant, i) => {
+        const at = `${where} variant ${i}`;
+        const { answer } = variant;
+
+        if (prompts.has(variant.prompt)) {
+          error(at, "identical prompt to another variant - a retake would be the same paper");
+        }
+        prompts.add(variant.prompt);
+
+        if (answer.type === "number") {
+          // The key itself, typed in, must be accepted. Catches NaN and friends.
+          if (!gradeResponse(answer, String(answer.value))) {
+            error(at, `the grader rejects its own answer key (${answer.value})`);
+          }
+          // A tolerance as large as the answer accepts 0 - i.e. a blank guess.
+          if (answer.value !== 0 && answer.tolerance >= Math.abs(answer.value)) {
+            error(at, `tolerance ${answer.tolerance} is as large as the answer ${answer.value}`);
+          }
+          const decimals = (String(answer.value).split(".")[1] ?? "").length;
+          if (decimals > 0 && answer.tolerance === 0) {
+            warn(at, `answer ${answer.value} has decimals but tolerance is 0 - rounding will fail honest answers`);
+          }
+          answers.add(`n:${answer.value}`);
+        } else {
+          const normalised = answer.accept.map(normaliseText);
+          if (normalised.some((a) => a.length === 0)) {
+            error(at, "an accepted answer is empty after normalisation");
+          }
+          answers.add(`t:${normalised[0]}`);
+        }
+      });
+
+      if (answers.size < q.variants.length) {
+        warn(where, "two variants share an answer - the retake is easier than it looks");
+      }
+    }
+
+    // An end-of-phase exam that skips a node is not an end-of-phase exam.
+    for (const node of nodes) {
+      const fm = node.frontmatter;
+      if (fm.phase === phase && isPublished(fm) && !covered.has(fm.id)) {
+        error(exam.filePath, `no question covers node ${fm.id} (${fm.title})`);
+      }
+    }
+  }
+
+  if (finals.length > 0) {
+    const final = finals[0];
+    if (phaseExams.length === 0) {
+      error(final.filePath, "a final exam needs phase exams to draw from");
+    }
+    for (const exam of phaseExams) {
+      if (exam.frontmatter.questions.length < final.frontmatter.draw_per_phase) {
+        error(
+          final.filePath,
+          `draw_per_phase is ${final.frontmatter.draw_per_phase} but ${exam.filePath} has only ${exam.frontmatter.questions.length} questions`,
+        );
+      }
+    }
+    // The final gates the capstone, so a phase with no exam would be a hole in
+    // the gate: every phase with published work must be examined.
+    const examined = new Set(phaseExams.map((e) => e.frontmatter.phase));
+    const phasesWithWork = new Set(
+      nodes.filter((n) => isPublished(n.frontmatter) && n.frontmatter.phase < 7).map((n) => n.frontmatter.phase),
+    );
+    for (const phase of [...phasesWithWork].sort()) {
+      if (!examined.has(phase)) {
+        graphIssue(final.filePath, `phase ${phase} has published nodes but no exam`);
+      }
+    }
+  }
+
+  const questionCount = phaseExams.reduce((n, e) => n + e.frontmatter.questions.length, 0);
+  const variantCount = phaseExams.reduce(
+    (n, e) => n + e.frontmatter.questions.reduce((m, q) => m + q.variants.length, 0),
+    0,
+  );
+  console.log(
+    `${phaseExams.length} phase exam(s), ${finals.length} final: ` +
+      `${questionCount} questions, ${variantCount} variants.`,
+  );
+}
+
 async function main() {
   let nodes: LoadedNode[];
 
@@ -225,6 +352,13 @@ async function main() {
   checkChecklists(nodes);
   checkResources(nodes);
   reportCoverage(nodes);
+
+  try {
+    checkExams(await loadAllExams(), nodes);
+  } catch (err) {
+    if (!(err instanceof ExamContentError)) throw err;
+    for (const issue of err.issues) error(issue.filePath, issue.message);
+  }
 
   const errors = findings.filter((f) => f.level === "error");
   const warnings = findings.filter((f) => f.level === "warn");

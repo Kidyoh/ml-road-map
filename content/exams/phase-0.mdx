@@ -1,0 +1,348 @@
+---
+kind: "phase"
+phase: 0
+title: "Phase 0 exam: Tooling floor"
+time_limit_minutes: 45
+pass_mark: 70
+cooldown_hours: 12
+questions:
+  - id: "primes-in-range"
+    covers: "0.1"
+    variants:
+      - prompt: >-
+          How many prime numbers p satisfy 10,000 <= p < 20,000? Enter just the
+          number.
+        answer: { type: "number", value: 1033, tolerance: 0 }
+        explanation: >-
+          Sieve of Eratosthenes up to 20,000 (or trial division up to the square
+          root of each candidate), then count the primes from 10,000 up to but not
+          including 20,000. There are 2262 primes below 20,000 and 1229 below
+          10,000, so the count is 2262 - 1229 = 1033.
+      - prompt: >-
+          How many prime numbers p satisfy 20,000 <= p < 30,000? Enter just the
+          number.
+        answer: { type: "number", value: 983, tolerance: 0 }
+        explanation: >-
+          Sieve of Eratosthenes up to 30,000 (or trial division up to the square
+          root of each candidate), then count the primes from 20,000 up to but not
+          including 30,000. There are 3245 primes below 30,000 and 2262 below
+          20,000, so the count is 3245 - 2262 = 983.
+
+  - id: "collatz-longest-chain"
+    covers: "0.1"
+    variants:
+      - prompt: >-
+          The Collatz rule: if n is even, halve it; if n is odd, replace it with
+          3n + 1; stop when you reach 1. The chain length counts both endpoints,
+          so the chain starting at 13 (13, 40, 20, 10, 5, 16, 8, 4, 2, 1) has
+          length 10. Among all starting numbers from 1 to 9,999 inclusive, what is
+          the length of the longest chain? Enter just the number (the length, not
+          the starting number).
+        answer: { type: "number", value: 262, tolerance: 0 }
+        explanation: >-
+          Write a chain-length function, check it returns 10 for 13, then take the
+          maximum over range(1, 10000). The longest chain starts at 6171 and has
+          length 262 counting both 6171 and the final 1.
+      - prompt: >-
+          The Collatz rule: if n is even, halve it; if n is odd, replace it with
+          3n + 1; stop when you reach 1. The chain length counts both endpoints,
+          so the chain starting at 13 (13, 40, 20, 10, 5, 16, 8, 4, 2, 1) has
+          length 10. Among all starting numbers from 1 to 49,999 inclusive, what
+          is the length of the longest chain? Enter just the number (the length,
+          not the starting number).
+        answer: { type: "number", value: 324, tolerance: 0 }
+        explanation: >-
+          Write a chain-length function, check it returns 10 for 13, then take the
+          maximum over range(1, 50000). The longest chain starts at 35655 and has
+          length 324 counting both 35655 and the final 1.
+
+  - id: "broadcast-nbytes"
+    covers: "0.2"
+    variants:
+      - prompt: |-
+          Predict this before (or instead of) running it.
+
+              import numpy as np
+              a = np.ones((4, 1, 3))
+              b = np.ones((5, 1))
+              c = a + b
+
+          np.ones produces float64 values, which take 8 bytes each. How many bytes of data does c hold, i.e. what is c.nbytes? Enter just the number.
+        answer: { type: "number", value: 480, tolerance: 0 }
+        explanation: >-
+          Align the shapes from the right: (4, 1, 3) against (1, 5, 1) after the
+          missing leading dimension of b is treated as 1. Each pair is equal or
+          contains a 1, so the result has shape (4, 5, 3), which is 60 elements.
+          60 elements times 8 bytes is 480 bytes.
+      - prompt: |-
+          Predict this before (or instead of) running it.
+
+              import numpy as np
+              a = np.ones((2, 1, 6))
+              b = np.ones((7, 1))
+              c = a + b
+
+          np.ones produces float64 values, which take 8 bytes each. How many bytes of data does c hold, i.e. what is c.nbytes? Enter just the number.
+        answer: { type: "number", value: 672, tolerance: 0 }
+        explanation: >-
+          Align the shapes from the right: (2, 1, 6) against (1, 7, 1) after the
+          missing leading dimension of b is treated as 1. Each pair is equal or
+          contains a 1, so the result has shape (2, 7, 6), which is 84 elements.
+          84 elements times 8 bytes is 672 bytes.
+
+  - id: "view-vs-copy-sum"
+    covers: "0.2"
+    variants:
+      - prompt: |-
+          What number does this print?
+
+              import numpy as np
+              arr = np.arange(10)        # 0, 1, 2, ..., 9
+              s = arr[2:5]
+              s[:] = 100
+              m = arr[arr > 50]
+              m[:] = -1
+              print(arr.sum())
+
+          Enter just the number.
+        answer: { type: "number", value: 336, tolerance: 0 }
+        explanation: >-
+          The slice arr[2:5] is a view, so writing 100 through it changes arr at
+          positions 2, 3 and 4. The boolean mask arr[arr > 50] returns a copy, so
+          writing -1 into m leaves arr untouched. arr is now 0, 1, 100, 100, 100,
+          5, 6, 7, 8, 9: the original sum 45, minus 2 + 3 + 4 = 9, plus 300, which
+          is 336.
+      - prompt: |-
+          What number does this print?
+
+              import numpy as np
+              arr = np.arange(12)        # 0, 1, 2, ..., 11
+              s = arr[3:7]
+              s[:] = 50
+              m = arr[arr > 20]
+              m[:] = -1
+              print(arr.sum())
+
+          Enter just the number.
+        answer: { type: "number", value: 248, tolerance: 0 }
+        explanation: >-
+          The slice arr[3:7] is a view, so writing 50 through it changes arr at
+          positions 3, 4, 5 and 6. The boolean mask arr[arr > 20] returns a copy,
+          so writing -1 into m leaves arr untouched. arr is now 0, 1, 2, 50, 50,
+          50, 50, 7, 8, 9, 10, 11: the original sum 66, minus 3 + 4 + 5 + 6 = 18,
+          plus 200, which is 248.
+
+  - id: "channel-revenue"
+    covers: "0.3"
+    variants:
+      - prompt: >-
+          Download /datasets/messy-transactions.csv and do exactly these steps.
+          (1) Drop exact duplicate rows, meaning rows identical in every column;
+          8,000 rows remain. (2) Turn amount into a float by removing any dollar
+          sign and any surrounding spaces. (3) Clean channel by stripping
+          surrounding whitespace and then lowercasing. What is the sum of amount
+          over the rows whose cleaned channel is mobile? Give your answer to 2
+          decimal places and enter just the number, with no currency sign.
+        answer: { type: "number", value: 275754.46, tolerance: 0.005 }
+        explanation: >-
+          After drop_duplicates there are 8000 rows. Strip the dollar signs and
+          spaces from amount and cast to float; strip and lowercase channel, which
+          leaves three values. 2312 rows are mobile, and their amounts sum to
+          275754.46.
+      - prompt: >-
+          Download /datasets/messy-transactions.csv and do exactly these steps.
+          (1) Drop exact duplicate rows, meaning rows identical in every column;
+          8,000 rows remain. (2) Turn amount into a float by removing any dollar
+          sign and any surrounding spaces. (3) Clean channel by stripping
+          surrounding whitespace and then lowercasing. What is the sum of amount
+          over the rows whose cleaned channel is in-store? Give your answer to 2
+          decimal places and enter just the number, with no currency sign.
+        answer: { type: "number", value: 277985.15, tolerance: 0.005 }
+        explanation: >-
+          After drop_duplicates there are 8000 rows. Strip the dollar signs and
+          spaces from amount and cast to float; strip and lowercase channel, which
+          leaves three values. 2317 rows are in-store, and their amounts sum to
+          277985.15.
+
+  - id: "merge-fan-out"
+    covers: "0.3"
+    variants:
+      - prompt: |-
+          A transactions table has 10 rows. Counting rows per customer_id:
+            A: 3 rows
+            B: 2 rows
+            C: 4 rows
+            D: 1 row
+
+          A customers table has 6 rows. Counting rows per customer_id:
+            A: 1 row
+            B: 2 rows
+            C: 3 rows
+            (no row for D)
+
+          How many rows does transactions.merge(customers, on="customer_id", how="left") return? Enter just the number.
+        answer: { type: "number", value: 20, tolerance: 0 }
+        explanation: >-
+          A merge is a cartesian product within each key. A gives 3 x 1 = 3 rows,
+          B gives 2 x 2 = 4, C gives 4 x 3 = 12, and D has no match, but a left
+          merge keeps its 1 row with missing customer columns. 3 + 4 + 12 + 1 =
+          20 rows, double the 10 that went in.
+      - prompt: |-
+          A transactions table has 12 rows. Counting rows per customer_id:
+            A: 5 rows
+            B: 3 rows
+            C: 2 rows
+            D: 2 rows
+
+          A customers table has 7 rows. Counting rows per customer_id:
+            A: 2 rows
+            B: 1 row
+            C: 4 rows
+            (no row for D)
+
+          How many rows does transactions.merge(customers, on="customer_id", how="left") return? Enter just the number.
+        answer: { type: "number", value: 23, tolerance: 0 }
+        explanation: >-
+          A merge is a cartesian product within each key. A gives 5 x 2 = 10 rows,
+          B gives 3 x 1 = 3, C gives 2 x 4 = 8, and D has no match, but a left
+          merge keeps its 2 rows with missing customer columns. 10 + 3 + 8 + 2 =
+          23 rows, nearly double the 12 that went in.
+
+  - id: "git-reset-log-count"
+    covers: "0.4"
+    variants:
+      - prompt: >-
+          A repository has a single branch, main, holding 9 commits in a straight
+          line with no merges. With main checked out and a clean working tree, you
+          run git reset --hard HEAD~3 and then make 2 new commits. How many lines
+          does git log --oneline print now (one line per commit reachable from
+          HEAD)? Enter just the number.
+        answer: { type: "number", value: 8, tolerance: 0 }
+        explanation: >-
+          HEAD~3 is the commit three before the tip, so the reset moves main back
+          to the 6th commit and the last 3 are no longer reachable from the branch
+          (they survive only in the reflog). Two new commits on top give 9 - 3 + 2
+          = 8 lines.
+      - prompt: >-
+          A repository has a single branch, main, holding 12 commits in a straight
+          line with no merges. With main checked out and a clean working tree, you
+          run git reset --hard HEAD~4 and then make 3 new commits. How many lines
+          does git log --oneline print now (one line per commit reachable from
+          HEAD)? Enter just the number.
+        answer: { type: "number", value: 11, tolerance: 0 }
+        explanation: >-
+          HEAD~4 is the commit four before the tip, so the reset moves main back
+          to the 8th commit and the last 4 are no longer reachable from the branch
+          (they survive only in the reflog). Three new commits on top give 12 - 4
+          + 3 = 11 lines.
+
+  - id: "notebook-hidden-state"
+    covers: "0.4"
+    variants:
+      - prompt: |-
+          A notebook has three cells:
+
+              Cell 1:   x = 5
+              Cell 2:   x = x * 2
+              Cell 3:   print(x + 1)
+
+          Starting from a fresh kernel, the cells are executed in this order: 1, 2, 3, 2, 2, 3.
+
+          What number does the final execution of cell 3 print? Enter just the number.
+        answer: { type: "number", value: 41, tolerance: 0 }
+        explanation: >-
+          Track x through the kernel, not the file. Cell 1 sets x to 5, cell 2
+          makes it 10, cell 3 prints 11. Cell 2 run twice more makes x 20 and then
+          40, so the final cell 3 prints 41. Restart-and-run-all would print 11,
+          which is the number the file actually describes.
+      - prompt: |-
+          A notebook has three cells:
+
+              Cell 1:   x = 3
+              Cell 2:   x = x * 3
+              Cell 3:   print(x + 4)
+
+          Starting from a fresh kernel, the cells are executed in this order: 1, 2, 3, 2, 1, 2, 2, 3.
+
+          What number does the final execution of cell 3 print? Enter just the number.
+        answer: { type: "number", value: 31, tolerance: 0 }
+        explanation: >-
+          Track x through the kernel, not the file. Cell 1 sets x to 3, cell 2
+          makes it 9, cell 3 prints 13, cell 2 makes it 27. Re-running cell 1
+          resets x to 3, then cell 2 twice makes it 9 and then 27, so the final
+          cell 3 prints 31. Restart-and-run-all would print 13, which is the
+          number the file actually describes.
+
+  - id: "sensor-mean-without-zeros"
+    covers: "0.5"
+    variants:
+      - prompt: >-
+          Download /datasets/sensor-readings.csv. Readings of exactly 0 are a
+          stuck sensor, not a temperature. Remove every row whose reading_c is
+          exactly 0, then compute the mean reading_c of the remaining rows for
+          sensor S-03 only. Give your answer to 3 decimal places and enter just
+          the number.
+        answer: { type: "number", value: 24.98, tolerance: 0.0005 }
+        explanation: >-
+          All 532 zero readings belong to S-03, leaving it 3000 - 532 = 2468 real
+          readings that sum to 61650.58. The mean is 61650.58 / 2468 = 24.97998,
+          which is 24.980 to 3 decimal places (24.98) - in line with the other
+          three sensors once the dropouts stop dragging it down.
+      - prompt: >-
+          Download /datasets/sensor-readings.csv. Readings of exactly 0 are a
+          stuck sensor, not a temperature. Remove every row whose reading_c is
+          exactly 0, then compute the mean reading_c of all the remaining rows,
+          across all four sensors together. Give your answer to 3 decimal places
+          and enter just the number.
+        answer: { type: "number", value: 25.064, tolerance: 0.0005 }
+        explanation: >-
+          Removing the 532 zero readings leaves 12000 - 532 = 11468 rows whose
+          readings sum to 287430.617. The mean is 287430.617 / 11468 = 25.0637,
+          which is 25.064 to 3 decimal places - about 1.1 degrees above the raw
+          overall mean that the zeros were pulling down.
+
+  - id: "anscombe-largest-residual"
+    covers: "0.5"
+    variants:
+      - prompt: >-
+          Download /datasets/anscombe.csv and keep only the 11 rows where dataset
+          is III. All four series share the fitted line y = 3 + 0.5x. For each of
+          the 11 points compute the residual y - (3 + 0.5 * x). What is the
+          largest absolute value among those 11 residuals? Give your answer to 2
+          decimal places and enter just the number.
+        answer: { type: "number", value: 3.24, tolerance: 0.005 }
+        explanation: >-
+          Ten of the points in series III lie almost on a straight line and one
+          does not. At x = 13 the line predicts 3 + 6.5 = 9.5 but y is 12.74, a
+          residual of 3.24. The next largest absolute residual is only 1.16 (at x
+          = 14), so the answer is 3.24 - one outlier that a scatter plot shows at
+          a glance.
+      - prompt: >-
+          Download /datasets/anscombe.csv and keep only the 11 rows where dataset
+          is I. All four series share the fitted line y = 3 + 0.5x. For each of
+          the 11 points compute the residual y - (3 + 0.5 * x). What is the
+          largest absolute value among those 11 residuals? Give your answer to 2
+          decimal places and enter just the number.
+        answer: { type: "number", value: 1.92, tolerance: 0.005 }
+        explanation: >-
+          Series I is ordinary scatter around the line. At x = 13 the line
+          predicts 3 + 6.5 = 9.5 but y is 7.58, a residual of -1.92. The next
+          largest in absolute value is 1.84 (at x = 12, where y is 10.84 against a
+          predicted 9), so the largest absolute residual is 1.92.
+---
+
+## What this covers
+
+This exam closes Phase 0. It has ten questions, two for each node:
+
+- **0.1 Python fundamentals** - writing a loop and a function that produce one exact number.
+- **0.2 Numpy and vectorized thinking** - predicting broadcast shapes and memory, and knowing a view from a copy.
+- **0.3 Pandas** - cleaning a messy CSV to a figure you would defend, and predicting what a merge does to the row count.
+- **0.4 Notebooks, environments, git** - what a reset does to history, and what hidden kernel state does to a notebook.
+- **0.5 Plotting to see** - the defects in the sensor and Anscombe data that summary statistics hide.
+
+Every answer is a number you compute and type in.
+
+## How to prepare
+
+The exam is open-tool and timed: use Python, a notebook, a calculator, the node datasets and your own session code. There is nothing to memorise. You need to be able to redo each session's work quickly on new numbers, and to follow a prompt's steps and rounding exactly. The questions change on a retake, so remembering answers will not help; re-running the session you stumbled on will.

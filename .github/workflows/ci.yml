@@ -34,6 +34,13 @@ jobs:
       - name: Validate content
         run: pnpm validate:content --strict
 
+      # Exams are auto-graded, so a bad answer key fails every learner who
+      # gets the question right. This checks every key against the grader, that
+      # retakes never repeat a variant, and the lock/cooldown/pass rules. No
+      # database needed.
+      - name: Exam logic
+        run: pnpm check:exam-logic
+
       # The committed datasets must be reproducible from the generator, or the
       # numbers in the checklists stop meaning anything.
       - name: Datasets are reproducible

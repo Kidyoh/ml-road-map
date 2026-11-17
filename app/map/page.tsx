@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { setEntryTrack } from "@/app/actions/progress";
 import { SignInButton, SignOutButton } from "@/components/auth-buttons";
+import { ExamTile } from "@/components/graph/exam-tile";
 import { EntryTrackPicker } from "@/components/graph/entry-track-picker";
 import { NodeTile } from "@/components/graph/node-tile";
 import { PhaseRing } from "@/components/graph/phase-ring";
@@ -24,7 +25,7 @@ import { buildGraph, summarisePhases, type EntryTrack } from "@/lib/progress";
 
 export const metadata = {
   title: "Map",
-  description: "The whole roadmap: 40 nodes across 8 phases.",
+  description: "The whole roadmap: 40 nodes across 8 phases, with an exam at the end of each.",
 };
 
 export default async function MapPage() {
@@ -44,6 +45,14 @@ export default async function MapPage() {
   );
 
   const needsTrack = Boolean(user) && !user?.entryTrack;
+
+  // An exam that is ready (or running) is the next thing to do - nothing else
+  // in the next phase opens until it is passed. Waived exams are optional.
+  const examDue =
+    graph.exams.find((e) => e.state === "in_progress") ??
+    graph.exams.find((e) => e.state === "open" && !e.waived) ??
+    null;
+  const finalExam = graph.exams.find((e) => e.kind === "final") ?? null;
 
   // The card needs the session brief and difficulty, which live in the MDX
   // rather than the database. One filesystem read for one node.
@@ -73,6 +82,9 @@ export default async function MapPage() {
             {user ? ` You have passed ${totalPassed} of ${totalPublished}.` : ""}{" "}
             Locked nodes are dimmed rather than hidden &mdash; you should be able
             to see the shape of the road ahead.
+            {graph.exams.length > 0
+              ? " Each phase ends in an exam, and passing it opens the next."
+              : ""}
           </p>
         </div>
 
@@ -119,6 +131,32 @@ export default async function MapPage() {
         />
       ) : null}
 
+      {user && !needsTrack && examDue ? (
+        <Card className="border-foreground/30">
+          <CardHeader>
+            <CardTitle>
+              {examDue.state === "in_progress"
+                ? `${examDue.title} is running`
+                : `${examDue.title} is ready`}
+            </CardTitle>
+            <CardDescription>
+              {examDue.state === "in_progress"
+                ? "The clock did not stop when you left. Go back and finish it."
+                : examDue.kind === "final"
+                  ? `Every phase exam is passed. ${examDue.questionCount} questions, ${examDue.timeLimitMinutes} minutes, and the capstone opens when you pass.`
+                  : `Every node in phase ${examDue.phase} is passed. ${examDue.questionCount} questions, ${examDue.timeLimitMinutes} minutes, and phase ${examDue.gatesPhase} opens when you pass.`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href={`/exam/${examDue.slug}`}>
+                {examDue.state === "in_progress" ? "Resume the exam" : "Go to the exam"}
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {user && !needsTrack && next ? (
         <StartHere
           node={next}
@@ -131,6 +169,9 @@ export default async function MapPage() {
       <div className="flex flex-col gap-10">
         {phases.map((phase) => {
           const phaseNodes = graph.nodes.filter((n) => n.phase === phase.phase);
+          const phaseExam = graph.exams.find((e) => e.phase === phase.phase);
+          // The final sits at the top of the capstone phase: it is the way in.
+          const entryExam = phase.phase === 7 ? finalExam : null;
           return (
             <section key={phase.phase} className="flex flex-col gap-4">
               <div className="flex items-center gap-4 border-t pt-4">
@@ -148,11 +189,15 @@ export default async function MapPage() {
                 </div>
               </div>
 
+              {entryExam ? <ExamTile exam={entryExam} /> : null}
+
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {phaseNodes.map((node) => (
                   <NodeTile key={node.id} node={node} />
                 ))}
               </div>
+
+              {phaseExam ? <ExamTile exam={phaseExam} /> : null}
             </section>
           );
         })}
@@ -164,6 +209,13 @@ export default async function MapPage() {
           self-rated. Every checkpoint item is something you can be honestly
           wrong about &mdash; that is what makes ticking one mean anything.
         </p>
+        {graph.exams.length > 0 ? (
+          <p className="mt-2">
+            A phase ends with a timed exam, graded automatically: you work out
+            a number and type it in. Passing it opens the next phase. Nodes you
+            had already opened before an exam applied stay open.
+          </p>
+        ) : null}
       </footer>
     </main>
   );

@@ -49,7 +49,7 @@ const NEW_VISIT_AFTER_MS = 30 * 60 * 1000;
  * enough to be a real return.
  */
 export async function openNode(nodeId: string) {
-  const { userId } = await requireUser();
+  const { userId, entryTrack } = await requireUser();
   const now = new Date();
 
   const [existing] = await db
@@ -58,6 +58,11 @@ export async function openNode(nodeId: string) {
     .where(and(eq(nodeProgress.userId, userId), eq(nodeProgress.nodeId, nodeId)));
 
   if (!existing) {
+    // The first open of a node is a write that matters: an opened node is
+    // exempt from exam gates that arrive later (see buildGraph). The page only
+    // calls this for an unlocked node, but a server action can be called by
+    // anyone, so the exemption has to be earned here too.
+    await assertNodeUnlocked(userId, entryTrack, nodeId);
     await db.insert(nodeProgress).values({
       userId,
       nodeId,

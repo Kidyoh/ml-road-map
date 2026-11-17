@@ -1,0 +1,430 @@
+---
+kind: "phase"
+phase: 2
+title: "Phase 2 exam: Supervised learning"
+time_limit_minutes: 45
+pass_mark: 70
+cooldown_hours: 12
+questions:
+  - id: "label-positives-at-new-cutoff"
+    covers: "2.1"
+    variants:
+      - prompt: >-
+          Download /datasets/retail-events.csv (33,926 transactions; order_date is
+          a YYYY-MM-DD string). Frame the problem from node 2.1 again, but with a
+          new cutoff date of 2024-07-01. The modelling population is every
+          customer_id with at least one transaction strictly before the cutoff
+          (order_date before 2024-07-01, the cutoff day itself excluded). A
+          customer's label is positive if they have at least one transaction on or
+          after the cutoff (order_date 2024-07-01 or later). How many customers in
+          the modelling population have a positive label? Enter just the whole
+          number.
+        answer: { type: "number", value: 1961, tolerance: 0 }
+        explanation: >-
+          Filter first: pre = rows with order_date < "2024-07-01" (19,780 rows),
+          post = rows with order_date >= "2024-07-01". The population is the set of
+          customer_id values in pre, which has 2,690 customers. The positives are
+          the population members that also appear in post. Customers who appear
+          only in post are not in the population and are not counted. The
+          intersection has 1,961 customers, a base rate of about 0.729.
+      - prompt: >-
+          Download /datasets/retail-events.csv (33,926 transactions; order_date is
+          a YYYY-MM-DD string). Frame the problem from node 2.1 again, but with a
+          new cutoff date of 2024-08-01. The modelling population is every
+          customer_id with at least one transaction strictly before the cutoff
+          (order_date before 2024-08-01, the cutoff day itself excluded). A
+          customer's label is positive if they have at least one transaction on or
+          after the cutoff (order_date 2024-08-01 or later). How many customers in
+          the modelling population have a positive label? Enter just the whole
+          number.
+        answer: { type: "number", value: 1836, tolerance: 0 }
+        explanation: >-
+          Filter first: pre = rows with order_date < "2024-08-01" (22,549 rows),
+          post = rows with order_date >= "2024-08-01". The population is the set of
+          customer_id values in pre, which has 2,721 customers. The positives are
+          the population members that also appear in post. Customers who appear
+          only in post are not in the population and are not counted. The
+          intersection has 1,836 customers, a base rate of about 0.675.
+
+  - id: "logistic-probability-for-a-row"
+    covers: "2.2"
+    variants:
+      - prompt: >-
+          A logistic regression fitted on two standardized features has intercept
+          0.20, a coefficient of -1.50 on recency and a coefficient of 0.40 on
+          frequency. A customer has standardized recency 0.80 and standardized
+          frequency -0.50. What probability of returning does the model predict
+          for this customer? Give your answer as a fraction between 0 and 1,
+          rounded to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 0.231, tolerance: 0.0005 }
+        explanation: >-
+          The log-odds are 0.20 + (-1.50)(0.80) + (0.40)(-0.50) = 0.20 - 1.20 -
+          0.20 = -1.20. The probability is sigmoid(-1.20) = 1 / (1 + exp(1.20)) =
+          1 / 4.3201 = 0.2315, which rounds to 0.231.
+      - prompt: >-
+          A logistic regression fitted on two standardized features has intercept
+          -0.30, a coefficient of -1.20 on recency and a coefficient of 0.50 on
+          frequency. A customer has standardized recency -1.50 and standardized
+          frequency 0.40. What probability of returning does the model predict
+          for this customer? Give your answer as a fraction between 0 and 1,
+          rounded to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 0.846, tolerance: 0.0005 }
+        explanation: >-
+          The log-odds are -0.30 + (-1.20)(-1.50) + (0.50)(0.40) = -0.30 + 1.80 +
+          0.20 = 1.70. The probability is sigmoid(1.70) = 1 / (1 + exp(-1.70)) =
+          1 / 1.1827 = 0.8455, which rounds to 0.846.
+
+  - id: "odds-multiplier-from-coefficient"
+    covers: "2.2"
+    variants:
+      - prompt: >-
+          A logistic regression predicting whether a customer returns is fitted on
+          standardized features. The coefficient on recency is -0.90, and one
+          standard deviation of recency is 40 days. Holding the other features
+          fixed, by what factor are the odds of returning multiplied when a
+          customer's recency goes up by 60 days? Round to 3 decimal places. Enter
+          just the number.
+        answer: { type: "number", value: 0.259, tolerance: 0.0005 }
+        explanation: >-
+          60 days is 60 / 40 = 1.5 standard deviations, so the log-odds change by
+          -0.90 times 1.5 = -1.35. The odds are multiplied by exp(-1.35) = 0.2592,
+          which rounds to 0.259.
+      - prompt: >-
+          A logistic regression predicting whether a customer returns is fitted on
+          standardized features. The coefficient on recency is -1.20, and one
+          standard deviation of recency is 50 days. Holding the other features
+          fixed, by what factor are the odds of returning multiplied when a
+          customer's recency goes up by 25 days? Round to 3 decimal places. Enter
+          just the number.
+        answer: { type: "number", value: 0.549, tolerance: 0.0005 }
+        explanation: >-
+          25 days is 25 / 50 = 0.5 standard deviations, so the log-odds change by
+          -1.20 times 0.5 = -0.60. The odds are multiplied by exp(-0.60) = 0.5488,
+          which rounds to 0.549.
+
+  - id: "train-only-standardisation"
+    covers: "2.3"
+    variants:
+      - prompt: >-
+          In one cross-validation fold the six training rows have these values of
+          monthly_spend: 20, 30, 40, 50, 60, 100. The single validation row has
+          monthly_spend 80. Standardize the validation row's value without
+          leaking: subtract the mean and divide by the population standard
+          deviation (divide by n, not n - 1, as StandardScaler does), both computed
+          from the six training rows only. Round to 3 decimal places. Enter just
+          the number.
+        answer: { type: "number", value: 1.162, tolerance: 0.0005 }
+        explanation: >-
+          Training mean = 300 / 6 = 50. Squared deviations are 900, 400, 100, 0,
+          100, 2500, which sum to 4000, so the population variance is 4000 / 6 =
+          666.67 and the standard deviation is 25.820. The validation value
+          becomes (80 - 50) / 25.820 = 1.162. The validation row itself never
+          enters the mean or the standard deviation. Final answer 1.162.
+      - prompt: >-
+          In one cross-validation fold the six training rows have these values of
+          monthly_spend: 10, 20, 20, 30, 40, 60. The single validation row has
+          monthly_spend 70. Standardize the validation row's value without
+          leaking: subtract the mean and divide by the population standard
+          deviation (divide by n, not n - 1, as StandardScaler does), both computed
+          from the six training rows only. Round to 3 decimal places. Enter just
+          the number.
+        answer: { type: "number", value: 2.449, tolerance: 0.0005 }
+        explanation: >-
+          Training mean = 180 / 6 = 30. Squared deviations are 400, 100, 100, 0,
+          100, 900, which sum to 1600, so the population variance is 1600 / 6 =
+          266.67 and the standard deviation is 16.330. The validation value
+          becomes (70 - 30) / 16.330 = 2.449. The validation row itself never
+          enters the mean or the standard deviation. Final answer 2.449.
+
+  - id: "leaky-minus-honest-target-encoding"
+    covers: "2.3"
+    variants:
+      - prompt: |
+          Eight customers, their promo code, their cross-validation fold and whether they churned:
+
+          row  promo_code  fold  churned
+          1    A           1     1
+          2    A           1     0
+          3    A           2     1
+          4    A           2     1
+          5    A           3     0
+          6    B           1     0
+          7    B           2     1
+          8    B           3     0
+
+          Target-encode promo_code for row 3 in two ways, with no smoothing.
+          Leaky: the mean of churned over ALL rows with the same promo_code, row 3 included.
+          Honest (out-of-fold): the mean of churned over rows with the same promo_code that are NOT in row 3's fold.
+
+          What is the leaky value minus the honest value? Round to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 0.267, tolerance: 0.0005 }
+        explanation: >-
+          Code A is rows 1 to 5 with churned 1, 0, 1, 1, 0, so the leaky encoding
+          is 3 / 5 = 0.600. Row 3 is in fold 2, so the honest encoding uses only the
+          code A rows outside fold 2, which are rows 1, 2 and 5 with churned 1, 0,
+          0, giving 1 / 3 = 0.333. The difference is 0.600 - 0.333 = 0.267, and it
+          is positive because row 3's own label is inside the leaky mean.
+      - prompt: |
+          Eight customers, their promo code, their cross-validation fold and whether they churned:
+
+          row  promo_code  fold  churned
+          1    A           1     1
+          2    A           2     1
+          3    A           2     1
+          4    A           3     0
+          5    A           3     0
+          6    A           1     0
+          7    B           1     1
+          8    B           3     0
+
+          Target-encode promo_code for row 2 in two ways, with no smoothing.
+          Leaky: the mean of churned over ALL rows with the same promo_code, row 2 included.
+          Honest (out-of-fold): the mean of churned over rows with the same promo_code that are NOT in row 2's fold.
+
+          What is the leaky value minus the honest value? Round to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 0.25, tolerance: 0.0005 }
+        explanation: >-
+          Code A is rows 1 to 6 with churned 1, 1, 1, 0, 0, 0, so the leaky
+          encoding is 3 / 6 = 0.500. Row 2 is in fold 2, so the honest encoding uses
+          only the code A rows outside fold 2, which are rows 1, 4, 5 and 6 with
+          churned 1, 0, 0, 0, giving 1 / 4 = 0.250. The difference is 0.500 - 0.250
+          = 0.250, and it is positive because row 2's own label is inside the leaky
+          mean.
+
+  - id: "f1-at-threshold"
+    covers: "2.4"
+    variants:
+      - prompt: |
+          Ten transactions with the model's fraud score and the true label (1 = fraud):
+
+          score  is_fraud
+          0.95   1
+          0.90   1
+          0.80   0
+          0.70   1
+          0.60   0
+          0.50   1
+          0.40   0
+          0.30   1
+          0.20   0
+          0.10   0
+
+          Predict fraud when score >= 0.50 (a score exactly equal to the threshold is predicted fraud).
+          What is the F1 score for the fraud class? Round to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 0.727, tolerance: 0.0005 }
+        explanation: >-
+          Six rows have score >= 0.50. Of those, four are fraud (0.95, 0.90, 0.70,
+          0.50) and two are not (0.80, 0.60), so TP = 4 and FP = 2. One fraud (0.30)
+          is below the threshold, so FN = 1. Precision = 4 / 6 = 0.667, recall = 4 /
+          5 = 0.800, and F1 = 2 TP / (2 TP + FP + FN) = 8 / 11 = 0.727.
+      - prompt: |
+          Ten transactions with the model's fraud score and the true label (1 = fraud):
+
+          score  is_fraud
+          0.92   1
+          0.85   0
+          0.77   1
+          0.66   1
+          0.58   0
+          0.45   0
+          0.40   1
+          0.33   0
+          0.21   1
+          0.05   0
+
+          Predict fraud when score >= 0.40 (a score exactly equal to the threshold is predicted fraud).
+          What is the F1 score for the fraud class? Round to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 0.667, tolerance: 0.0005 }
+        explanation: >-
+          Seven rows have score >= 0.40. Of those, four are fraud (0.92, 0.77, 0.66,
+          0.40) and three are not (0.85, 0.58, 0.45), so TP = 4 and FP = 3. One
+          fraud (0.21) is below the threshold, so FN = 1. Precision = 4 / 7 = 0.571,
+          recall = 4 / 5 = 0.800, and F1 = 2 TP / (2 TP + FP + FN) = 8 / 12 = 0.667.
+
+  - id: "lowest-total-cost-over-thresholds"
+    covers: "2.4"
+    variants:
+      - prompt: |
+          Ten transactions with the model's fraud score and the true label (1 = fraud):
+
+          score  is_fraud
+          0.91   1
+          0.84   0
+          0.76   1
+          0.65   0
+          0.55   1
+          0.47   0
+          0.38   0
+          0.31   1
+          0.22   0
+          0.12   0
+
+          A transaction is flagged when score >= threshold. Costs: every missed fraud (a fraud that is not flagged) costs 60, every false alarm (a legitimate transaction that is flagged) costs 10, and correct decisions cost 0.
+          Sweep the candidate thresholds 0.20, 0.40, 0.60 and 0.80 and compute the total cost over these ten transactions at each one.
+          What is the total cost at the threshold with the lowest total cost? Enter just the whole number.
+        answer: { type: "number", value: 50, tolerance: 0 }
+        explanation: >-
+          At 0.20 nine rows are flagged: 0 missed frauds and 5 false alarms, cost
+          50. At 0.40 six rows are flagged: 1 missed fraud (0.31) and 3 false
+          alarms, cost 60 + 30 = 90. At 0.60 four rows are flagged: 2 missed and 2
+          false alarms, cost 120 + 20 = 140. At 0.80 two rows are flagged: 3 missed
+          and 1 false alarm, cost 180 + 10 = 190. The minimum is 50, at threshold
+          0.20, because a miss costs six times a false alarm.
+      - prompt: |
+          Ten transactions with the model's fraud score and the true label (1 = fraud):
+
+          score  is_fraud
+          0.95   1
+          0.88   1
+          0.79   0
+          0.70   1
+          0.61   0
+          0.52   0
+          0.43   1
+          0.34   0
+          0.25   0
+          0.16   0
+
+          A transaction is flagged when score >= threshold. Costs: every missed fraud (a fraud that is not flagged) costs 40, every false alarm (a legitimate transaction that is flagged) costs 15, and correct decisions cost 0.
+          Sweep the candidate thresholds 0.30, 0.50, 0.70 and 0.90 and compute the total cost over these ten transactions at each one.
+          What is the total cost at the threshold with the lowest total cost? Enter just the whole number.
+        answer: { type: "number", value: 55, tolerance: 0 }
+        explanation: >-
+          At 0.30 eight rows are flagged: 0 missed frauds and 4 false alarms, cost
+          60. At 0.50 six rows are flagged: 1 missed fraud (0.43) and 3 false
+          alarms, cost 40 + 45 = 85. At 0.70 four rows are flagged (0.70 counts): 1
+          missed and 1 false alarm, cost 40 + 15 = 55. At 0.90 one row is flagged: 3
+          missed and 0 false alarms, cost 120. The minimum is 55, at threshold 0.70.
+
+  - id: "gini-decrease-of-a-split"
+    covers: "2.5"
+    variants:
+      - prompt: >-
+          A decision tree node holds 40 samples: 24 malignant and 16 benign. A
+          candidate split sends 25 samples to the left child (20 malignant, 5
+          benign) and 15 samples to the right child (4 malignant, 11 benign).
+          Using Gini impurity (1 minus the sum of squared class proportions),
+          compute the impurity decrease of this split: the parent's impurity minus
+          the weighted average of the two children's impurities, each child
+          weighted by its share of the parent's samples. Round to 3 decimal
+          places. Enter just the number.
+        answer: { type: "number", value: 0.133, tolerance: 0.0005 }
+        explanation: >-
+          Parent: 1 - (0.6^2 + 0.4^2) = 0.480. Left: 1 - (0.8^2 + 0.2^2) = 0.320.
+          Right: 1 - ((4/15)^2 + (11/15)^2) = 0.3911. Weighted children = (25/40)
+          times 0.320 + (15/40) times 0.3911 = 0.2000 + 0.1467 = 0.3467. Decrease =
+          0.480 - 0.3467 = 0.1333, which rounds to 0.133.
+      - prompt: >-
+          A decision tree node holds 50 samples: 15 malignant and 35 benign. A
+          candidate split sends 20 samples to the left child (12 malignant, 8
+          benign) and 30 samples to the right child (3 malignant, 27 benign).
+          Using Gini impurity (1 minus the sum of squared class proportions),
+          compute the impurity decrease of this split: the parent's impurity minus
+          the weighted average of the two children's impurities, each child
+          weighted by its share of the parent's samples. Round to 3 decimal
+          places. Enter just the number.
+        answer: { type: "number", value: 0.12, tolerance: 0.0005 }
+        explanation: >-
+          Parent: 1 - (0.3^2 + 0.7^2) = 0.420. Left: 1 - (0.6^2 + 0.4^2) = 0.480.
+          Right: 1 - (0.1^2 + 0.9^2) = 0.180. Weighted children = (20/50) times
+          0.480 + (30/50) times 0.180 = 0.192 + 0.108 = 0.300. Decrease = 0.420 -
+          0.300 = 0.120.
+
+  - id: "residual-after-first-boosting-round"
+    covers: "2.6"
+    variants:
+      - prompt: |
+          Gradient boosting for regression with squared-error loss, on four training rows:
+
+          x  y
+          1  10
+          2  20
+          3  30
+          4  60
+
+          The ensemble starts by predicting the mean of y for every row. The first tree is a stump that sends rows with x <= 2 to the left leaf and rows with x > 2 to the right leaf. Each leaf's value is the mean of the current residuals (y minus the current prediction) of the training rows in that leaf. The learning rate is 0.1, so the updated prediction is the starting prediction plus 0.1 times the leaf value.
+
+          After this first tree is added, what is the residual (y minus the updated prediction) of the row with x = 4? Enter just the number, as an exact decimal.
+        answer: { type: "number", value: 28.5, tolerance: 0.001 }
+        explanation: >-
+          The starting prediction is the mean of y, 120 / 4 = 30. Residuals are
+          -20, -10, 0 and 30. The left leaf (x = 1, 2) has value (-20 - 10) / 2 =
+          -15 and the right leaf (x = 3, 4) has value (0 + 30) / 2 = 15. The row
+          with x = 4 is in the right leaf, so its updated prediction is 30 + 0.1
+          times 15 = 31.5 and its new residual is 60 - 31.5 = 28.5.
+      - prompt: |
+          Gradient boosting for regression with squared-error loss, on four training rows:
+
+          x  y
+          1  5
+          2  15
+          3  40
+          4  60
+
+          The ensemble starts by predicting the mean of y for every row. The first tree is a stump that sends rows with x <= 2 to the left leaf and rows with x > 2 to the right leaf. Each leaf's value is the mean of the current residuals (y minus the current prediction) of the training rows in that leaf. The learning rate is 0.3, so the updated prediction is the starting prediction plus 0.3 times the leaf value.
+
+          After this first tree is added, what is the residual (y minus the updated prediction) of the row with x = 3? Enter just the number, as an exact decimal.
+        answer: { type: "number", value: 4, tolerance: 0.001 }
+        explanation: >-
+          The starting prediction is the mean of y, 120 / 4 = 30. Residuals are
+          -25, -15, 10 and 30. The left leaf (x = 1, 2) has value (-25 - 15) / 2 =
+          -20 and the right leaf (x = 3, 4) has value (10 + 30) / 2 = 20. The row
+          with x = 3 is in the right leaf, so its updated prediction is 30 + 0.3
+          times 20 = 36 and its new residual is 40 - 36 = 4.
+
+  - id: "recall-ceiling-from-largest-error-group"
+    covers: "2.7"
+    variants:
+      - prompt: |
+          Your validation set contains 200 frauds. At your chosen threshold the model catches 150 of them and misses 50. You read the 50 missed frauds and grouped them by hand:
+
+          category                              missed frauds
+          ordinary-looking domestic, low value  22
+          foreign travel purchases              13
+          high-value electronics                9
+          shared-device households              6
+
+          To rank next actions you want an upper bound: suppose one new feature fixed every miss in the largest category and changed nothing else (no other prediction changes).
+          What would the model's recall on this validation set become? Give a fraction between 0 and 1, rounded to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 0.86, tolerance: 0.0005 }
+        explanation: >-
+          Recall now is 150 / 200 = 0.750. The largest category has 22 missed
+          frauds. If all 22 were caught and nothing else changed, the model would
+          catch 150 + 22 = 172 of the 200 frauds, so recall would become 172 / 200
+          = 0.860. That 0.11 gain is the upper bound on what fixing this category
+          can buy.
+      - prompt: |
+          Your validation set contains 160 frauds. At your chosen threshold the model catches 112 of them and misses 48. You read the 48 missed frauds and grouped them by hand:
+
+          category                              missed frauds
+          foreign travel purchases              9
+          ordinary-looking domestic, low value  20
+          high-value electronics                12
+          shared-device households              7
+
+          To rank next actions you want an upper bound: suppose one new feature fixed every miss in the largest category and changed nothing else (no other prediction changes).
+          What would the model's recall on this validation set become? Give a fraction between 0 and 1, rounded to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 0.825, tolerance: 0.0005 }
+        explanation: >-
+          Recall now is 112 / 160 = 0.700. The largest category has 20 missed
+          frauds. If all 20 were caught and nothing else changed, the model would
+          catch 112 + 20 = 132 of the 160 frauds, so recall would become 132 / 160
+          = 0.825. That 0.125 gain is the upper bound on what fixing this category
+          can buy.
+---
+
+## What this covers
+
+One exam for the whole of phase 2. Every node has at least one question:
+
+- **2.1 Framing an ML problem** - population, label and cutoff on the retail data
+- **2.2 Linear and logistic regression** - a prediction from given coefficients, and reading a coefficient as an odds multiplier
+- **2.3 Validation and leakage** - train-only scaling and out-of-fold target encoding
+- **2.4 Metrics that match the problem** - F1 at a threshold, and choosing a threshold from a cost
+- **2.5 Trees and forests** - Gini impurity and the gain of a split
+- **2.6 Gradient boosting** - residuals, a leaf value and the learning rate
+- **2.7 Model diagnosis** - turning an error category into an upper bound
+
+## How to prepare
+
+This is an open-tool exam. Use Python, a notebook or a calculator, and keep your node notes open: nothing here needs memorising. Every answer is a number you compute and type in. One question uses a committed dataset, so have pandas ready. Read each prompt for its conventions: whether a boundary is inclusive, how many decimal places, fraction or percent. Enter just the number, with no units or percent sign. The numbers change on a retake, so learn the method rather than the answers.

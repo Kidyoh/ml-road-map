@@ -20,7 +20,9 @@
     "check:gating": "cross-env NODE_OPTIONS=--conditions=react-server tsx scripts/check-gating.ts",
     "check:locking": "cross-env NODE_OPTIONS=--conditions=react-server tsx scripts/check-locking.ts",
     "check:social": "cross-env NODE_OPTIONS=--conditions=react-server tsx scripts/check-social.ts",
-    "check:admin": "cross-env NODE_OPTIONS=--conditions=react-server tsx scripts/check-admin.ts"
+    "check:admin": "cross-env NODE_OPTIONS=--conditions=react-server tsx scripts/check-admin.ts",
+    "check:exam-logic": "tsx scripts/check-exam-logic.ts",
+    "check:exams": "cross-env NODE_OPTIONS=--conditions=react-server tsx scripts/check-exams.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",

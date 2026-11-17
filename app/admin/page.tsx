@@ -13,6 +13,7 @@ import {
   recentStruggles,
   struggleTotals,
 } from "@/lib/admin";
+import { examCountsByLearner, examOverview } from "@/lib/exams";
 
 export const metadata = { title: "Admin" };
 
@@ -22,6 +23,7 @@ const SIGNAL_UNIT: Record<string, string> = {
   node_abandoned: "days",
   thin_reflection: "words",
   reopened_after_pass: "days",
+  exam_question_missed: "questions",
 };
 
 function ago(then: Date | null): string {
@@ -35,13 +37,16 @@ export default async function AdminPage() {
   // this route exists.
   if (!isAdminEmail(session?.user?.email)) notFound();
 
-  const [funnel, people, struggles, totals, phase0] = await Promise.all([
-    nodeFunnel(),
-    learners(),
-    recentStruggles(60),
-    struggleTotals(),
-    phaseZeroFunnel(),
-  ]);
+  const [funnel, people, struggles, totals, phase0, exams, examCounts] =
+    await Promise.all([
+      nodeFunnel(),
+      learners(),
+      recentStruggles(60),
+      struggleTotals(),
+      phaseZeroFunnel(),
+      examOverview(),
+      examCountsByLearner(),
+    ]);
 
   const published = funnel.filter((n) => n.checklistTotal > 0);
   const maxOpened = Math.max(1, ...published.map((n) => n.opened));
@@ -120,7 +125,7 @@ export default async function AdminPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
-                  {["Person", "Track", "Passed", "Opened", "Ticks", "Answers", "Reflections", "Signals", "Last active"].map(
+                  {["Person", "Track", "Passed", "Opened", "Ticks", "Answers", "Reflections", "Exams", "Signals", "Last active"].map(
                     (h) => (
                       <th
                         key={h}
@@ -154,6 +159,13 @@ export default async function AdminPage() {
                     <td className="border-b px-3 py-2 tabular-nums">{p.ticks}</td>
                     <td className="border-b px-3 py-2 tabular-nums">{p.answers}</td>
                     <td className="border-b px-3 py-2 tabular-nums">{p.reflections}</td>
+                    <td className="border-b px-3 py-2 tabular-nums whitespace-nowrap">
+                      {examCounts.get(p.id)?.passed ?? 0} passed
+                      <span className="text-muted-foreground">
+                        {" "}
+                        / {examCounts.get(p.id)?.attempts ?? 0} tries
+                      </span>
+                    </td>
                     <td className="border-b px-3 py-2 tabular-nums">{p.struggles}</td>
                     <td className="text-muted-foreground border-b px-3 py-2 text-xs whitespace-nowrap">
                       {ago(p.lastActiveAt)}
@@ -206,6 +218,99 @@ export default async function AdminPage() {
           Solid = passed, faded = opened.
         </p>
       </section>
+
+      {/* --- exams -------------------------------------------------------- */}
+      {exams.exams.length > 0 ? (
+        <section className="grid gap-6 lg:grid-cols-2">
+          <div className="flex flex-col gap-3">
+            <h2 className="text-sm font-medium tracking-widest uppercase">Exams</h2>
+            <p className="text-muted-foreground text-sm">
+              Unlike the checkpoints, these are graded by the server. A phase
+              people tick through and then fail the exam for is a phase where
+              the ticks are not telling the truth.
+            </p>
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    {["Exam", "Sat", "Passed", "Attempts", "Timed out", "Mean"].map((h) => (
+                      <th
+                        key={h}
+                        className="border-b px-3 py-2 text-left font-medium whitespace-nowrap"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {exams.exams.map((e) => (
+                    <tr key={e.examId} className="hover:bg-accent/40">
+                      <td className="border-b px-3 py-2">
+                        <Link href={`/exam/${e.slug}`} className="text-primary hover:underline">
+                          {e.title}
+                        </Link>
+                      </td>
+                      <td className="border-b px-3 py-2 tabular-nums">{e.learners}</td>
+                      <td className="border-b px-3 py-2 tabular-nums">{e.passedLearners}</td>
+                      <td className="border-b px-3 py-2 tabular-nums">{e.attempts}</td>
+                      <td className="border-b px-3 py-2 tabular-nums">{e.timedOut}</td>
+                      <td className="text-muted-foreground border-b px-3 py-2 tabular-nums">
+                        {e.meanScore === null ? "—" : `${Math.round(e.meanScore * 100)}%`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <h2 className="text-sm font-medium tracking-widest uppercase">
+              Most-missed questions
+            </h2>
+            {exams.mostMissed.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                No exam question has been answered wrong yet.
+              </p>
+            ) : (
+              <div className="max-h-96 overflow-y-auto rounded-md border">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      {["Question", "Node", "Missed"].map((h) => (
+                        <th key={h} className="border-b px-3 py-2 text-left font-medium">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {exams.mostMissed.map((q) => (
+                      <tr key={`${q.examTitle}|${q.questionId}`}>
+                        <td className="border-b px-3 py-2">
+                          <span className="font-mono text-xs">{q.questionId}</span>
+                          <span className="text-muted-foreground block text-xs">
+                            {q.examTitle}
+                          </span>
+                        </td>
+                        <td className="border-b px-3 py-2 font-mono text-xs">{q.covers}</td>
+                        <td className="border-b px-3 py-2 tabular-nums whitespace-nowrap">
+                          {q.missed}/{q.asked}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="text-muted-foreground text-xs">
+              A question nearly everyone misses is either the hardest thing in
+              the phase or a question with a bad key. Check the key first.
+            </p>
+          </div>
+        </section>
+      ) : null}
 
       {/* --- struggle signals --------------------------------------------- */}
       <section className="grid gap-6 lg:grid-cols-2">

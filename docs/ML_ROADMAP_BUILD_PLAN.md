@@ -216,6 +216,13 @@ Per-node comments, optional public reflections, capstone peer review flow for no
 
 **Done when:** two accounts can hold a threaded discussion on node 2.3.
 
+### M6.5 — Exams (added after the original plan)
+A timed, auto-graded exam at the end of each of phases 0–6, a comprehensive final in front of the capstone, and a certificate for passing the final and the capstone. Passing a phase exam is required to open the next phase.
+
+This is an addition to the plan, not a relaxation of it. Non-negotiable 4 holds: exam answers are computed numbers or exact short values, never multiple choice. Non-negotiable 2 holds: which nodes an exam pass opens is derived from `exam_attempts` on every read. Non-negotiable 1 holds: exams are MDX in `content/exams/` and have no content tables. Section 8's "self-verification inflation" risk is what this addresses before M8 exists — it is the first check in the product the learner does not mark themselves.
+
+**Done when:** a fresh account that passes every phase 0 node cannot open 1.1 until it passes the phase 0 exam (`pnpm check:exams`).
+
 ### M7 — Pilot
 Onboard 3 to 5 real learners. Weekly check-ins. Watch `struggle_events` rather than asking people how it is going.
 

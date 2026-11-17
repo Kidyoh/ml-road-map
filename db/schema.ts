@@ -20,7 +20,9 @@
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   boolean,
+  index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -30,7 +32,10 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import type { AdapterAccountType } from "next-auth/adapters";
+
+import type { ExamAnswer } from "../lib/exam-schema";
 
 /* ------------------------------------------------------------------ enums */
 
@@ -63,6 +68,9 @@ export const struggleSignalEnum = pgEnum("struggle_signal", [
   "node_abandoned",
   "thin_reflection",
   "reopened_after_pass",
+  // Not self-reported like the five above: an auto-graded exam question the
+  // learner got wrong, recorded against the node it covers.
+  "exam_question_missed",
 ]);
 
 export const artifactKindEnum = pgEnum("artifact_kind", [
@@ -360,6 +368,95 @@ export const comments = pgTable("comments", {
   }),
   body: text("body").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/* ------------------------------------------------------------------ exams */
+
+/**
+ * One question exactly as it was put to the learner, answer key included.
+ *
+ * Exams live in git and have no content tables at all. An attempt carries its
+ * own paper instead, for two reasons: a retake draws different variants, so
+ * "which questions" is per-attempt rather than per-exam; and a later edit to an
+ * exam file must not be able to regrade - or make unreadable - an attempt
+ * somebody already sat.
+ *
+ * The answer and explanation are in this column and therefore never go to the
+ * browser while the attempt is open. lib/exams.ts strips them.
+ */
+export type PaperQuestion = {
+  /** Unique within the paper. For the final: `${phase}:${questionId}`. */
+  id: string;
+  /** The node this tests - a miss is logged as a struggle event against it. */
+  covers: string;
+  phase: number;
+  /** Which variant was drawn, so the next attempt can avoid repeating it. */
+  variant: number;
+  prompt: string;
+  answer: ExamAnswer;
+  explanation: string;
+};
+
+export const examAttempts = pgTable(
+  "exam_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** "exam-0" ... "exam-6", "exam-final". Not a foreign key - see above. */
+    examId: text("exam_id").notNull(),
+    paper: jsonb("paper").$type<PaperQuestion[]>().notNull(),
+    /** Snapshot of the exam's pass mark (percent) when the attempt started. */
+    passMark: integer("pass_mark").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /**
+     * Fixed at start and enforced on the server. The countdown in the browser
+     * is a courtesy; this column is the clock.
+     */
+    deadlineAt: timestamp("deadline_at", { withTimezone: true }).notNull(),
+    /** Null while the attempt is open. */
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    /** What was typed, by paper question id. Null if the attempt timed out. */
+    responses: jsonb("responses").$type<Record<string, string>>(),
+    /** Number of questions marked correct. Null until submitted. */
+    correct: integer("correct"),
+    /**
+     * A fact about this attempt, graded once under the rules it was sat under.
+     * It is NOT unlock state: which nodes an exam pass opens is derived from
+     * these rows on every read, like everything else (non-negotiable 2).
+     */
+    passed: boolean("passed"),
+  },
+  (t) => [
+    index("exam_attempts_user_exam_idx").on(t.userId, t.examId),
+    // At most one open attempt per learner per exam, enforced by the database
+    // rather than by a check-then-insert that two tabs can race.
+    uniqueIndex("exam_attempts_one_open_idx")
+      .on(t.userId, t.examId)
+      .where(sql`${t.submittedAt} is null`),
+  ],
+);
+
+/**
+ * A certificate is an issued document with a date on it, so unlike unlock
+ * state it is stored. Eligibility is still derived (final exam passed and the
+ * capstone passed) at the moment of issue; the row records that it was.
+ */
+export const certificates = pgTable("certificates", {
+  /** Random and unguessable - it is the public, shareable URL. */
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  /** The name as the learner wants it printed, fixed at issue. */
+  name: text("name").notNull(),
+  issuedAt: timestamp("issued_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });

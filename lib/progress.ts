@@ -11,11 +11,12 @@ import "server-only";
  * own activity on a node (opened / completed). Whether a node is hidden, fogged
  * or open is a function of the whole graph and is computed here every time.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   checklistState,
+  examAttempts,
   nodeChecklist,
   nodePrereqs,
   nodeProgress,
@@ -23,7 +24,16 @@ import {
   nodes,
   questionAttempts,
 } from "@/db/schema";
+import { loadAllExamsCached } from "@/lib/exam-content";
+import {
+  deriveExamSummaries,
+  unmetExamGates,
+  type AttemptFacts,
+  type ExamSummary,
+} from "@/lib/exam-rules";
 import { isGuestUser } from "@/lib/guest";
+
+export type { ExamState, ExamSummary } from "@/lib/exam-rules";
 
 export type NodeState =
   | "hidden"
@@ -61,6 +71,11 @@ export type NodeSummary = {
   completedAt: Date | null;
   /** True when the entry track granted this rather than the learner earning it. */
   assumedPassed: boolean;
+  /**
+   * Exams that are keeping this node locked, in order. Empty for a node that
+   * is open, or one that is locked only by its prerequisites.
+   */
+  examGates: string[];
 };
 
 export type Graph = {
@@ -68,6 +83,9 @@ export type Graph = {
   byId: Map<string, NodeSummary>;
   /** Node to resume: most recently opened and not yet passed. */
   resumeNodeId: string | null;
+  /** Phase exams in order, then the final. Empty if content/exams is empty. */
+  exams: ExamSummary[];
+  examById: Map<string, ExamSummary>;
 };
 
 /**
@@ -161,13 +179,18 @@ function distanceFromFrontier(
 /**
  * The whole graph for one learner, or for nobody.
  *
- * Six queries regardless of graph size - no per-node round trips. Called on
+ * Eight queries regardless of graph size - no per-node round trips. Called on
  * every map render and every node render, which is exactly the point: it is
  * cheap enough that there is never a reason to cache the answer and let it rot.
+ *
+ * Exams are part of the graph, not a layer on top of it. A node in phase N+1
+ * needs the phase N exam passed just as it needs its prerequisites passed, and
+ * both are worked out here, from rows, on every call.
  */
 export async function buildGraph(
   userId: string | null,
   entryTrack: EntryTrack | null = null,
+  now: Date = new Date(),
 ): Promise<Graph> {
   const [allNodes, allPrereqs, checklistCounts, questionCounts] =
     await Promise.all([
@@ -205,8 +228,10 @@ export async function buildGraph(
     { openedAt: Date | null; completedAt: Date | null }
   >();
 
+  let examAttemptRows: AttemptFacts[] = [];
+
   if (userId) {
-    const [checks, attempts, progress] = await Promise.all([
+    const [checks, attempts, progress, examRows] = await Promise.all([
       db
         .select({ itemId: checklistState.checklistItemId })
         .from(checklistState)
@@ -225,7 +250,24 @@ export async function buildGraph(
         })
         .from(nodeProgress)
         .where(eq(nodeProgress.userId, userId)),
+      // Not the paper itself - it carries every answer key and the graph only
+      // needs to know how long it was.
+      db
+        .select({
+          id: examAttempts.id,
+          examId: examAttempts.examId,
+          startedAt: examAttempts.startedAt,
+          deadlineAt: examAttempts.deadlineAt,
+          submittedAt: examAttempts.submittedAt,
+          correct: examAttempts.correct,
+          passed: examAttempts.passed,
+          total: sql<number>`jsonb_array_length(${examAttempts.paper})`,
+        })
+        .from(examAttempts)
+        .where(eq(examAttempts.userId, userId)),
     ]);
+
+    examAttemptRows = examRows;
 
     for (const c of checks) checkedItems.add(c.itemId);
     // Only a rated attempt counts. Revealing the answer and walking away does
@@ -272,21 +314,49 @@ export async function buildGraph(
 
   const passed = new Set([...earned, ...assumed]);
 
-  // --- derive every state -------------------------------------------------
+  // --- exams ----------------------------------------------------------------
   // The shared guest account (the 904 Advisory link) sees every node open.
   const unlockAll = isGuestUser(userId);
+
+  // An entry track waives the exams for the phases it starts beyond.
+  const startNode = entryTrack
+    ? allNodes.find((n) => n.id === ENTRY_TRACK_START_NODE[entryTrack])
+    : undefined;
+
+  const loadedExams = await loadAllExamsCached();
+  const exams = deriveExamSummaries({
+    exams: loadedExams,
+    nodes: allNodes,
+    passedNodes: passed,
+    attempts: examAttemptRows,
+    startPhase: startNode?.phase ?? 0,
+    unlockAll,
+    now,
+  });
+  const examById = new Map(exams.map((e) => [e.id, e]));
+
+  // --- derive every state -------------------------------------------------
   const memo = new Map<string, number>();
   const summaries: NodeSummary[] = allNodes.map((node) => {
     const tally = tallies.get(node.id)!;
     const progress = progressByNode.get(node.id);
     const distance = distanceFromFrontier(node.id, prereqsOf, passed, memo);
 
+    // A node the learner has already opened stays open. Exams arrived after
+    // the first learners did, and locking someone out of a node they are
+    // halfway through would be a punishment for having started early. Nothing
+    // new opens for them until the exam is passed, which is the point of it.
+    const examGates =
+      unlockAll || passed.has(node.id) || progress?.openedAt
+        ? []
+        : unmetExamGates(node.phase, loadedExams, examById).map((e) => e.id);
+
     let state: NodeState;
     if (passed.has(node.id)) {
       state = "passed";
-    } else if (distance === 0 || unlockAll) {
+    } else if (unlockAll || (distance === 0 && examGates.length === 0)) {
       state = progress?.openedAt ? "in_progress" : "open";
-    } else if (distance === 1) {
+    } else if (distance <= 1) {
       state = "fogged";
     } else {
       state = "hidden";
@@ -309,6 +379,7 @@ export async function buildGraph(
       openedAt: progress?.openedAt ?? null,
       completedAt: progress?.completedAt ?? null,
       assumedPassed: assumed.has(node.id) && !earned.has(node.id),
+      examGates,
     };
   });
 
@@ -324,6 +395,8 @@ export async function buildGraph(
     nodes: summaries,
     byId: new Map(summaries.map((n) => [n.id, n])),
     resumeNodeId: resumeCandidate?.id ?? null,
+    exams,
+    examById,
   };
 }
 
@@ -353,7 +426,7 @@ export async function assertNodeUnlocked(
 
   if (isLockedState(state)) {
     throw new Error(
-      `Node ${nodeId} is locked - its prerequisites are not passed yet.`,
+      `Node ${nodeId} is locked - its prerequisites or a phase exam are not passed yet.`,
     );
   }
 }

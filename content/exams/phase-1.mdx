@@ -1,0 +1,305 @@
+---
+kind: "phase"
+phase: 1
+title: "Phase 1 exam: Math on demand"
+time_limit_minutes: 45
+pass_mark: 70
+cooldown_hours: 12
+questions:
+  - id: "matmul-determinant"
+    covers: "1.1"
+    variants:
+      - prompt: |-
+          A has shape (2, 3) and B has shape (3, 2):
+
+              A = [[1, 2, 0],
+                   [0, 1, 3]]
+
+              B = [[2, 1],
+                   [1, 0],
+                   [0, 2]]
+
+          Compute the matrix product M = A @ B, then give the determinant of M. Enter just the number.
+        answer: { type: "number", value: 23, tolerance: 0 }
+        explanation: >-
+          The inner dimensions (3 and 3) match and vanish, so M is (2, 2). Row by
+          column: M = [[1*2 + 2*1 + 0*0, 1*1 + 2*0 + 0*2], [0*2 + 1*1 + 3*0, 0*1 +
+          1*0 + 3*2]] = [[4, 1], [1, 6]]. The determinant is 4*6 - 1*1 = 23.
+      - prompt: |-
+          A has shape (2, 3) and B has shape (3, 2):
+
+              A = [[2, 0, 1],
+                   [1, 3, 0]]
+
+              B = [[1, 2],
+                   [0, 1],
+                   [3, 0]]
+
+          Compute the matrix product M = A @ B, then give the determinant of M. Enter just the number.
+        answer: { type: "number", value: 21, tolerance: 0 }
+        explanation: >-
+          The inner dimensions (3 and 3) match and vanish, so M is (2, 2). Row by
+          column: M = [[2*1 + 0*0 + 1*3, 2*2 + 0*1 + 1*0], [1*1 + 3*0 + 0*3, 1*2 +
+          3*1 + 0*0]] = [[5, 4], [1, 5]]. The determinant is 5*5 - 4*1 = 21.
+
+  - id: "largest-eigenvalue"
+    covers: "1.1"
+    variants:
+      - prompt: |-
+          For the symmetric matrix
+
+              A = [[4, 1],
+                   [1, 2]]
+
+          give the larger of its two eigenvalues, to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 4.414, tolerance: 0.0005 }
+        explanation: >-
+          The eigenvalues sum to the trace 6 and multiply to the determinant 4*2 -
+          1*1 = 7, so they solve t^2 - 6t + 7 = 0, giving t = 3 plus or minus the
+          square root of 2. The two values are 1.586 and 4.414 (np.linalg.eigvalsh
+          agrees), so the larger is 4.414.
+      - prompt: |-
+          For the symmetric matrix
+
+              A = [[5, 2],
+                   [2, 1]]
+
+          give the larger of its two eigenvalues, to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 5.828, tolerance: 0.0005 }
+        explanation: >-
+          The eigenvalues sum to the trace 6 and multiply to the determinant 5*1 -
+          2*2 = 1, so they solve t^2 - 6t + 1 = 0, giving t = 3 plus or minus the
+          square root of 8. The two values are 0.172 and 5.828 (np.linalg.eigvalsh
+          agrees), so the larger is 5.828.
+
+  - id: "sigmoid-chain-rule"
+    covers: "1.2"
+    variants:
+      - prompt: |-
+          A single sigmoid unit with a squared-error loss:
+
+              z = w * x + b
+              s = 1 / (1 + exp(-z))
+              L = (s - y) ** 2
+
+          With w = 0.5, x = 2, b = 0.5 and y = 1, compute the partial derivative dL/dw. Give your answer to 4 decimal places, including the sign. Enter just the number.
+        answer: { type: "number", value: -0.1088, tolerance: 0.00005 }
+        explanation: >-
+          Chain rule: dL/dw = 2(s - y) * s(1 - s) * x. Here z = 0.5*2 + 0.5 = 1.5
+          and s = sigmoid(1.5) = 0.81757. So dL/ds = 2(0.81757 - 1) = -0.36485,
+          ds/dz = 0.81757 * 0.18243 = 0.14915, dz/dw = x = 2. The product is
+          -0.36485 * 0.14915 * 2 = -0.1088.
+      - prompt: |-
+          A single sigmoid unit with a squared-error loss:
+
+              z = w * x + b
+              s = 1 / (1 + exp(-z))
+              L = (s - y) ** 2
+
+          With w = -1, x = 1.5, b = 0.5 and y = 0, compute the partial derivative dL/dw. Give your answer to 4 decimal places, including the sign. Enter just the number.
+        answer: { type: "number", value: 0.1586, tolerance: 0.00005 }
+        explanation: >-
+          Chain rule: dL/dw = 2(s - y) * s(1 - s) * x. Here z = -1*1.5 + 0.5 = -1
+          and s = sigmoid(-1) = 0.26894. So dL/ds = 2(0.26894 - 0) = 0.53788,
+          ds/dz = 0.26894 * 0.73106 = 0.19661, dz/dw = x = 1.5. The product is
+          0.53788 * 0.19661 * 1.5 = 0.1586.
+
+  - id: "central-difference"
+    covers: "1.2"
+    variants:
+      - prompt: >-
+          Let f(x) = x^3 - 2x. Compute the central-difference estimate of the
+          derivative at x = 2 with step h = 0.1, that is (f(x + h) - f(x - h)) /
+          (2h). Give the estimate itself, not the exact derivative, to 4 decimal
+          places. Enter just the number.
+        answer: { type: "number", value: 10.01, tolerance: 0.00005 }
+        explanation: >-
+          f(2.1) = 9.261 - 4.2 = 5.061 and f(1.9) = 6.859 - 3.8 = 3.059. The
+          estimate is (5.061 - 3.059) / 0.2 = 2.002 / 0.2 = 10.01. The exact
+          derivative 3x^2 - 2 is 10; the extra 0.01 is the truncation error, which
+          for a cubic is exactly h squared.
+      - prompt: >-
+          Let f(x) = x^3 + 4x. Compute the central-difference estimate of the
+          derivative at x = 3 with step h = 0.2, that is (f(x + h) - f(x - h)) /
+          (2h). Give the estimate itself, not the exact derivative, to 4 decimal
+          places. Enter just the number.
+        answer: { type: "number", value: 31.04, tolerance: 0.00005 }
+        explanation: >-
+          f(3.2) = 32.768 + 12.8 = 45.568 and f(2.8) = 21.952 + 11.2 = 33.152. The
+          estimate is (45.568 - 33.152) / 0.4 = 12.416 / 0.4 = 31.04. The exact
+          derivative 3x^2 + 4 is 31; the extra 0.04 is the truncation error, which
+          for a cubic is exactly h squared.
+
+  - id: "binomial-cdf"
+    covers: "1.3"
+    variants:
+      - prompt: >-
+          X is the number of successes in 10 independent trials, each with success
+          probability 0.2, so X follows Binomial(10, 0.2). Compute the exact
+          probability P(X <= 2), meaning 2 or fewer successes. Give it as a
+          fraction between 0 and 1 (not a percentage), to 4 decimal places. Enter
+          just the number.
+        answer: { type: "number", value: 0.6778, tolerance: 0.00005 }
+        explanation: >-
+          P(X = k) = C(10, k) * 0.2^k * 0.8^(10 - k). P(0) = 0.107374, P(1) =
+          0.268435, P(2) = 0.301990. Their sum is 0.677800, so P(X <= 2) = 0.6778.
+      - prompt: >-
+          X is the number of successes in 12 independent trials, each with success
+          probability 0.25, so X follows Binomial(12, 0.25). Compute the exact
+          probability P(X <= 3), meaning 3 or fewer successes. Give it as a
+          fraction between 0 and 1 (not a percentage), to 4 decimal places. Enter
+          just the number.
+        answer: { type: "number", value: 0.6488, tolerance: 0.00005 }
+        explanation: >-
+          P(X = k) = C(12, k) * 0.25^k * 0.75^(12 - k). P(0) = 0.031676, P(1) =
+          0.126705, P(2) = 0.232293, P(3) = 0.258104. Their sum is 0.648779, so
+          P(X <= 3) = 0.6488.
+
+  - id: "poisson-window"
+    covers: "1.3"
+    variants:
+      - prompt: >-
+          Emails arrive independently at a constant average rate of 3 per hour, so
+          the count in any window is Poisson. What is the probability that at most
+          1 email (that is, 0 or 1) arrives in a 30-minute window? Give it as a
+          fraction between 0 and 1 (not a percentage), to 4 decimal places. Enter
+          just the number.
+        answer: { type: "number", value: 0.5578, tolerance: 0.00005 }
+        explanation: >-
+          The count in a window is Poisson with mean rate times window = 3 * 0.5 =
+          1.5. P(X <= 1) = e^(-1.5) * (1 + 1.5) = 0.223130 * 2.5 = 0.557825, so
+          the answer is 0.5578.
+      - prompt: >-
+          Emails arrive independently at a constant average rate of 5 per hour, so
+          the count in any window is Poisson. What is the probability that at most
+          1 email (that is, 0 or 1) arrives in a 24-minute window? Give it as a
+          fraction between 0 and 1 (not a percentage), to 4 decimal places. Enter
+          just the number.
+        answer: { type: "number", value: 0.406, tolerance: 0.00005 }
+        explanation: >-
+          The count in a window is Poisson with mean rate times window = 5 * 0.4 =
+          2. P(X <= 1) = e^(-2) * (1 + 2) = 0.135335 * 3 = 0.406006, so the answer
+          is 0.4060.
+
+  - id: "any-false-positive"
+    covers: "1.4"
+    variants:
+      - prompt: >-
+          You test 12 independent metrics, none of which has any real effect, each
+          at significance level alpha = 0.05 with no correction. What is the
+          probability that at least one of the 12 comes back significant? Give it
+          as a fraction between 0 and 1 (not a percentage), to 4 decimal places.
+          Enter just the number.
+        answer: { type: "number", value: 0.4596, tolerance: 0.00005 }
+        explanation: >-
+          Under the null each test stays quiet with probability 0.95, and the
+          tests are independent, so all 12 stay quiet with probability 0.95^12 =
+          0.540360. At least one false positive therefore has probability 1 -
+          0.540360 = 0.4596.
+      - prompt: >-
+          You test 8 independent metrics, none of which has any real effect, each
+          at significance level alpha = 0.10 with no correction. What is the
+          probability that at least one of the 8 comes back significant? Give it
+          as a fraction between 0 and 1 (not a percentage), to 4 decimal places.
+          Enter just the number.
+        answer: { type: "number", value: 0.5695, tolerance: 0.00005 }
+        explanation: >-
+          Under the null each test stays quiet with probability 0.90, and the
+          tests are independent, so all 8 stay quiet with probability 0.90^8 =
+          0.430467. At least one false positive therefore has probability 1 -
+          0.430467 = 0.5695.
+
+  - id: "confidence-upper-bound"
+    covers: "1.4"
+    variants:
+      - prompt: >-
+          A sample of n = 400 observations has sample mean 52.3 and sample
+          standard deviation 8.0 (computed with ddof = 1). Using the normal
+          quantile 1.96, compute the 95% confidence interval for the population
+          mean and give its UPPER bound, to 2 decimal places. Enter just the
+          number.
+        answer: { type: "number", value: 53.08, tolerance: 0.005 }
+        explanation: >-
+          The standard error is s / sqrt(n) = 8.0 / 20 = 0.4. The half-width is
+          1.96 * 0.4 = 0.784, so the interval is 52.3 plus or minus 0.784, from
+          51.516 to 53.084. The upper bound is 53.08.
+      - prompt: >-
+          A sample of n = 625 observations has sample mean 18.4 and sample
+          standard deviation 5.0 (computed with ddof = 1). Using the normal
+          quantile 1.96, compute the 95% confidence interval for the population
+          mean and give its UPPER bound, to 2 decimal places. Enter just the
+          number.
+        answer: { type: "number", value: 18.79, tolerance: 0.005 }
+        explanation: >-
+          The standard error is s / sqrt(n) = 5.0 / 25 = 0.2. The half-width is
+          1.96 * 0.2 = 0.392, so the interval is 18.4 plus or minus 0.392, from
+          18.008 to 18.792. The upper bound is 18.79.
+
+  - id: "gradient-descent-steps"
+    covers: "1.5"
+    variants:
+      - prompt: >-
+          Minimise f(x) = (x - 3)^2 with plain gradient descent, x_next = x - lr *
+          f'(x), starting at x = 0 with learning rate lr = 0.25. What is the value
+          of x after exactly 3 update steps? Give your answer to 3 decimal places.
+          Enter just the number.
+        answer: { type: "number", value: 2.625, tolerance: 0.0005 }
+        explanation: >-
+          The gradient is 2(x - 3), so each step multiplies the distance from the
+          minimum by (1 - 2*0.25) = 0.5. Step 1: 0 - 0.25*(-6) = 1.5. Step 2: 1.5
+          - 0.25*(-3) = 2.25. Step 3: 2.25 - 0.25*(-1.5) = 2.625.
+      - prompt: >-
+          Minimise f(x) = (x - 5)^2 with plain gradient descent, x_next = x - lr *
+          f'(x), starting at x = 1 with learning rate lr = 0.1. What is the value
+          of x after exactly 3 update steps? Give your answer to 3 decimal places.
+          Enter just the number.
+        answer: { type: "number", value: 2.952, tolerance: 0.0005 }
+        explanation: >-
+          The gradient is 2(x - 5), so each step multiplies the distance from the
+          minimum by (1 - 2*0.1) = 0.8. Step 1: 1 - 0.1*(-8) = 1.8. Step 2: 1.8 -
+          0.1*(-6.4) = 2.44. Step 3: 2.44 - 0.1*(-5.12) = 2.952.
+
+  - id: "stability-threshold"
+    covers: "1.5"
+    variants:
+      - prompt: >-
+          Gradient descent x_next = x - lr * f'(x) is run on f(x) = 2.5x^2 - 4x
+          from a starting point that is not the minimum. There is a threshold T
+          such that the iterates converge to the minimum for every learning rate
+          0 < lr < T and fail to converge for every lr >= T. What is T? Give it as
+          a decimal to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 0.4, tolerance: 0.0005 }
+        explanation: >-
+          f'(x) = 5x - 4 and the minimum is at x = 0.8. Writing e = x - 0.8, the
+          update is e_next = e(1 - 5*lr). It shrinks only when |1 - 5*lr| < 1,
+          which means lr < 2/5. Equivalently, lr must be below 2 divided by the
+          curvature f''(x) = 5. So T = 0.4, where the iterate oscillates forever.
+      - prompt: >-
+          Gradient descent x_next = x - lr * f'(x) is run on f(x) = 4x^2 + 3x from
+          a starting point that is not the minimum. There is a threshold T such
+          that the iterates converge to the minimum for every learning rate 0 < lr
+          < T and fail to converge for every lr >= T. What is T? Give it as a
+          decimal to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 0.25, tolerance: 0.0005 }
+        explanation: >-
+          f'(x) = 8x + 3 and the minimum is at x = -0.375. Writing e = x + 0.375,
+          the update is e_next = e(1 - 8*lr). It shrinks only when |1 - 8*lr| < 1,
+          which means lr < 2/8. Equivalently, lr must be below 2 divided by the
+          curvature f''(x) = 8. So T = 0.25, where the iterate oscillates forever.
+---
+
+## What this covers
+
+This exam closes Phase 1. It has ten questions, two for each node:
+
+- **1.1 Linear algebra intuition** - multiplying matrices of different shapes, determinants, and eigenvalues.
+- **1.2 Derivatives and the chain rule** - a hand-derived chain rule through a sigmoid, and a finite-difference estimate.
+- **1.3 Probability and distributions** - exact binomial probabilities, and Poisson counts for a rate and a window.
+- **1.4 Statistical inference** - how false positives pile up across many tests, and a confidence interval from a standard error.
+- **1.5 Gradient descent by hand** - stepping the update rule yourself, and finding the learning rate where it stops converging.
+
+Every answer is a number you compute and type in.
+
+## How to prepare
+
+The exam is open-tool and timed: use Python, a notebook, a calculator and your own session code, including your gradient checker. There is no need to memorise formulas, but be able to rebuild each one from what it means. Read each prompt for the exact form it wants: decimal places, a fraction rather than a percentage, which bound. The questions change on a retake, so remembering answers will not help; redoing the session you stumbled on will.

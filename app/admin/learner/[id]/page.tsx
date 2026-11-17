@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { isAdminEmail, learnerDetail } from "@/lib/admin";
+import { learnerExamAttempts } from "@/lib/exams";
 
 export const metadata = { title: "Learner" };
 
@@ -23,6 +24,7 @@ export default async function LearnerPage({
   if (!detail) notFound();
 
   const { user, progress, ticks, answers, written, struggles } = detail;
+  const examAttempts = await learnerExamAttempts(id);
 
   const ticksByNode = new Map<string, typeof ticks>();
   for (const t of ticks) {
@@ -115,6 +117,77 @@ export default async function LearnerPage({
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+      </section>
+
+      {/* --- exams -------------------------------------------------------- */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium tracking-widest uppercase">
+          Exam attempts{" "}
+          <span className="text-muted-foreground tabular-nums">
+            ({examAttempts.length})
+          </span>
+        </h2>
+        {examAttempts.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No exam started yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {examAttempts.map((a) => (
+              <details key={a.id} className="rounded-md border">
+                <summary className="flex cursor-pointer flex-wrap items-center gap-3 px-3 py-2 text-sm">
+                  <span>{a.examTitle}</span>
+                  <Badge
+                    variant={a.status === "passed" ? "default" : "outline"}
+                    className="text-[10px] font-normal"
+                  >
+                    {a.status === "active"
+                      ? "in progress"
+                      : a.timedOut
+                        ? "timed out"
+                        : a.status}
+                  </Badge>
+                  <span className="tabular-nums">
+                    {a.correct === null ? "—" : `${a.correct}/${a.total}`}
+                  </span>
+                  <span className="text-muted-foreground ml-auto text-xs whitespace-nowrap">
+                    {stamp(a.startedAt)}
+                  </span>
+                </summary>
+                <div className="overflow-x-auto border-t">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        {["Question", "Node", "Typed", "Key", ""].map((h, i) => (
+                          <th key={i} className="border-b px-3 py-2 text-left font-medium">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {a.questions.map((q) => (
+                        <tr key={q.id}>
+                          <td className="border-b px-3 py-2 font-mono" title={q.prompt}>
+                            {q.id}
+                          </td>
+                          <td className="border-b px-3 py-2 font-mono">{q.covers}</td>
+                          <td className="border-b px-3 py-2 font-mono">
+                            {q.response ?? "—"}
+                          </td>
+                          <td className="text-muted-foreground border-b px-3 py-2 font-mono">
+                            {q.answer}
+                          </td>
+                          <td className="border-b px-3 py-2">
+                            {a.status === "active" ? "" : q.correct ? "right" : "wrong"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            ))}
           </div>
         )}
       </section>

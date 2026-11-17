@@ -16,6 +16,7 @@ export const STRUGGLE_SIGNALS = [
   "node_abandoned",
   "thin_reflection",
   "reopened_after_pass",
+  "exam_question_missed",
 ] as const;
 
 export type StruggleSignal = (typeof STRUGGLE_SIGNALS)[number];
@@ -32,6 +33,8 @@ export const SIGNAL_UNITS: Record<StruggleSignal, string> = {
   thin_reflection: "words",
   /** Days between passing and reopening. */
   reopened_after_pass: "days",
+  /** Always 1: one auto-graded exam question answered wrong on this node. */
+  exam_question_missed: "count",
 };
 
 /** A reflection shorter than this is recorded as `thin_reflection`. */

@@ -296,6 +296,9 @@ export default async function NodePage({ params }: PageProps<"/node/[slug]">) {
           blockers={summary.prereqs
             .map((id) => graph.byId.get(id))
             .filter((n): n is NonNullable<typeof n> => Boolean(n))}
+          examBlockers={summary.examGates
+            .map((id) => graph.examById.get(id))
+            .filter((e): e is NonNullable<typeof e> => Boolean(e))}
           signedIn={signedIn}
         />
       ) : isPublished(frontmatter) ? (

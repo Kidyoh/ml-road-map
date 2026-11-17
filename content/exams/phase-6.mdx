@@ -1,0 +1,563 @@
+---
+kind: "phase"
+phase: 6
+title: "Phase 6 exam: Ship it"
+time_limit_minutes: 45
+pass_mark: 70
+cooldown_hours: 12
+questions:
+  - id: "p95-latency"
+    covers: "6.1"
+    variants:
+      - prompt: |
+          A load test of your /predict endpoint recorded these 24 request latencies, in milliseconds:
+
+          Latencies: 18, 22, 19, 25, 21, 140, 20, 23, 31, 19, 24, 27, 20, 62, 22, 18, 26, 21, 95, 23, 29, 33, 17, 48
+
+          Compute the p95 latency using the nearest-rank method: sort the values in ascending order and take the value at position ceil(0.95 * n), counting positions from 1, where n is the number of requests. Do not interpolate between values.
+
+          Enter just the number, in milliseconds.
+        answer: { type: "number", value: 95, tolerance: 0 }
+        explanation: >-
+          n = 24, so the rank is ceil(0.95 * 24) = ceil(22.8) = 23. Sorted
+          ascending, the three largest values are 62, 95 and 140, at positions
+          22, 23 and 24. The value at position 23 is 95, so p95 = 95 ms. Note
+          that the median is only 23 ms: the tail is where the trouble is.
+      - prompt: |
+          A load test of your /predict endpoint recorded these 30 request latencies, in milliseconds:
+
+          Latencies: 34, 41, 37, 39, 210, 36, 44, 38, 35, 52, 40, 37, 118, 42, 36, 39, 45, 41, 76, 38, 43, 35, 47, 40, 64, 39, 36, 55, 42, 38
+
+          Compute the p95 latency using the nearest-rank method: sort the values in ascending order and take the value at position ceil(0.95 * n), counting positions from 1, where n is the number of requests. Do not interpolate between values.
+
+          Enter just the number, in milliseconds.
+        answer: { type: "number", value: 118, tolerance: 0 }
+        explanation: >-
+          n = 30, so the rank is ceil(0.95 * 30) = ceil(28.5) = 29. Sorted
+          ascending, the three largest values are 76, 118 and 210, at positions
+          28, 29 and 30. The value at position 29 is 118, so p95 = 118 ms. Note
+          that the median is only 40 ms: the tail is where the trouble is.
+
+  - id: "validation-422-count"
+    covers: "6.1"
+    variants:
+      - prompt: |
+          Your /predict endpoint validates its JSON body with this Pydantic model, in strict mode (no type coercion: a string where a number belongs is rejected, not converted):
+
+          class Transaction(BaseModel):
+              amount: float = Field(gt=0)
+              hour: int = Field(ge=0, le=23)
+              country: str
+              category: str
+              distinct_cards_on_device_24h: int = Field(ge=0)
+
+          All five fields are required. The model is loaded and healthy, so every request that passes validation gets a 200. These 8 request bodies are sent:
+
+          1) {"amount": 412.5, "hour": 3, "country": "BR", "category": "gambling", "distinct_cards_on_device_24h": 4}
+          2) {"amount": 59.9, "country": "DE", "category": "grocery", "distinct_cards_on_device_24h": 1}
+          3) {"amount": "lots", "hour": 14, "country": "US", "category": "travel", "distinct_cards_on_device_24h": 2}
+          4) {"amount": 0.0, "hour": 9, "country": "US", "category": "grocery", "distinct_cards_on_device_24h": 1}
+          5) {"amount": 18.25, "hour": 23, "country": "FR", "category": "fuel", "distinct_cards_on_device_24h": 0}
+          6) {"amount": 230.5, "hour": 24, "country": "BR", "category": "travel", "distinct_cards_on_device_24h": 3}
+          7) {"amount": 75.5, "hour": 0, "country": "DE", "category": "fuel", "distinct_cards_on_device_24h": -1}
+          8) {"amount": 0.01, "hour": 12, "country": "FR", "category": "gambling", "distinct_cards_on_device_24h": "2"}
+
+          How many of the 8 requests get a 422 response? Enter just the number.
+        answer: { type: "number", value: 6, tolerance: 0 }
+        explanation: >-
+          Requests 1 and 5 are valid (hour 23 and a count of 0 are both inside
+          their inclusive bounds). The other six fail validation: 2 is missing
+          hour, 3 has a string for amount, 4 has amount 0.0 which is not
+          strictly greater than 0, 6 has hour 24 which is above 23, 7 has a
+          negative card count, and 8 has a string for the card count, which
+          strict mode refuses to coerce. Answer: 6.
+      - prompt: |
+          Your /predict endpoint validates its JSON body with this Pydantic model, in strict mode (no type coercion: a string where a number belongs is rejected, not converted):
+
+          class Transaction(BaseModel):
+              amount: float = Field(gt=0)
+              hour: int = Field(ge=0, le=23)
+              country: str
+              category: str
+              distinct_cards_on_device_24h: int = Field(ge=0)
+
+          All five fields are required. The model is loaded and healthy, so every request that passes validation gets a 200. These 8 request bodies are sent:
+
+          1) {"amount": 88.4, "hour": 17, "country": "FR", "category": "travel", "distinct_cards_on_device_24h": 2}
+          2) {"amount": 12.75, "hour": "17", "country": "US", "category": "grocery", "distinct_cards_on_device_24h": 1}
+          3) {"amount": -5.5, "hour": 8, "country": "DE", "category": "fuel", "distinct_cards_on_device_24h": 1}
+          4) {"amount": 640.2, "hour": 0, "country": "BR", "category": "gambling", "distinct_cards_on_device_24h": 0}
+          5) {"amount": 33.1, "hour": 21, "country": "US", "distinct_cards_on_device_24h": 5}
+          6) {"amount": 9.99, "hour": -1, "country": "FR", "category": "grocery", "distinct_cards_on_device_24h": 2}
+          7) {"amount": 0.5, "hour": 23, "country": "DE", "category": "travel", "distinct_cards_on_device_24h": 7}
+          8) {"amount": 150.25, "hour": 11, "country": "BR", "category": "fuel"}
+
+          How many of the 8 requests get a 422 response? Enter just the number.
+        answer: { type: "number", value: 5, tolerance: 0 }
+        explanation: >-
+          Requests 1, 4 and 7 are valid (hour 0, hour 23 and a count of 0 are
+          all inside their inclusive bounds, and 0.5 is greater than 0). The
+          other five fail validation: 2 has a string for hour, which strict
+          mode refuses to coerce, 3 has a negative amount, 5 is missing
+          category, 6 has hour -1 which is below 0, and 8 is missing the card
+          count. Answer: 5.
+
+  - id: "layer-cache-rebuild-time"
+    covers: "6.2"
+    variants:
+      - prompt: |
+          This Dockerfile has just been built, so every step is in the layer cache. The last column is how many seconds the step takes when it actually executes; a step served from the cache takes 0 seconds.
+
+          step  instruction                               seconds
+          1     FROM python:3.12-slim                     2
+          2     WORKDIR /app                              1
+          3     RUN apt-get install -y libgomp1           25
+          4     COPY requirements.txt .                   1
+          5     RUN pip install -r requirements.txt       140
+          6     COPY . .                                  2
+          7     RUN python -m compileall .                6
+          8     CMD ["uvicorn", "main:app"]               1
+
+          The build context contains main.py, requirements.txt and other source files, and nothing is excluded by .dockerignore. You change one line of main.py and nothing else (the Dockerfile and requirements.txt are untouched), then rebuild.
+
+          How many seconds does the rebuild take? Enter just the number, in seconds.
+        answer: { type: "number", value: 9, tolerance: 0 }
+        explanation: >-
+          Steps 1 to 5 are unchanged and step 4 copies only requirements.txt,
+          which did not change, so they all come from cache. Step 6 copies the
+          whole context, which now contains a changed main.py, so its cache is
+          invalidated, and every step after an invalidated one also re-executes.
+          Steps 6, 7 and 8 run: 2 + 6 + 1 = 9 seconds. The 140 second install
+          stays cached because dependencies are copied before the source.
+      - prompt: |
+          This Dockerfile has just been built, so every step is in the layer cache. The last column is how many seconds the step takes when it actually executes; a step served from the cache takes 0 seconds.
+
+          step  instruction                               seconds
+          1     FROM python:3.12-slim                     3
+          2     WORKDIR /app                              1
+          3     COPY . .                                  2
+          4     RUN apt-get install -y libgomp1           30
+          5     RUN pip install -r requirements.txt       170
+          6     RUN useradd --create-home app             2
+          7     USER app                                  1
+          8     CMD ["uvicorn", "main:app"]               1
+
+          The build context contains main.py, requirements.txt and other source files, and nothing is excluded by .dockerignore. You change one line of main.py and nothing else (the Dockerfile and requirements.txt are untouched), then rebuild.
+
+          How many seconds does the rebuild take? Enter just the number, in seconds.
+        answer: { type: "number", value: 206, tolerance: 0 }
+        explanation: >-
+          Steps 1 and 2 are unchanged and come from cache. Step 3 copies the
+          whole context, which now contains a changed main.py, so its cache is
+          invalidated, and every step after an invalidated one also re-executes
+          even though requirements.txt did not change. Steps 3 to 8 run:
+          2 + 30 + 170 + 2 + 1 + 1 = 206 seconds. This is the ordering mistake
+          of copying the source before installing dependencies.
+
+  - id: "multi-stage-image-size"
+    covers: "6.2"
+    variants:
+      - prompt: |
+          You build the same service two ways. The last column is how many MB each instruction adds to the stage it is in (for FROM, the size of the base image).
+
+          Single-stage Dockerfile:
+          stage    instruction                                   MB
+          single   FROM python:3.12                              1010
+          single   RUN apt-get install -y build-essential        290
+          single   RUN pip install -r requirements.txt           430
+          single   COPY . .                                      14
+
+          Multi-stage Dockerfile:
+          stage    instruction                                   MB
+          builder  FROM python:3.12                              1010
+          builder  RUN apt-get install -y build-essential        290
+          builder  RUN pip install into /opt/venv                430
+          final    FROM python:3.12-slim                         125
+          final    RUN useradd --create-home app                 1
+          final    COPY --from=builder /opt/venv /opt/venv       430
+          final    COPY . .                                      14
+
+          By what percentage is the image you ship from the multi-stage build smaller than the single-stage image? Give the answer as a percentage to 1 decimal place and enter just the number (for example 12.3, not 0.123).
+        answer: { type: "number", value: 67.3, tolerance: 0.05 }
+        explanation: >-
+          The single-stage image is 1010 + 290 + 430 + 14 = 1744 MB. The shipped
+          multi-stage image contains only the final stage, because the builder
+          stage is discarded: 125 + 1 + 430 + 14 = 570 MB. The reduction is
+          (1744 - 570) / 1744 = 1174 / 1744 = 0.6732, which is 67.3 percent.
+      - prompt: |
+          You build the same service two ways. The last column is how many MB each instruction adds to the stage it is in (for FROM, the size of the base image).
+
+          Single-stage Dockerfile:
+          stage    instruction                                   MB
+          single   FROM python:3.12                              1020
+          single   RUN apt-get install -y build-essential        340
+          single   RUN pip install -r requirements.txt           610
+          single   COPY . .                                      22
+
+          Multi-stage Dockerfile:
+          stage    instruction                                   MB
+          builder  FROM python:3.12                              1020
+          builder  RUN apt-get install -y build-essential        340
+          builder  RUN pip install into /opt/venv                610
+          final    FROM python:3.12-slim                         130
+          final    RUN useradd --create-home app                 1
+          final    COPY --from=builder /opt/venv /opt/venv       610
+          final    COPY . .                                      22
+
+          By what percentage is the image you ship from the multi-stage build smaller than the single-stage image? Give the answer as a percentage to 1 decimal place and enter just the number (for example 12.3, not 0.123).
+        answer: { type: "number", value: 61.7, tolerance: 0.05 }
+        explanation: >-
+          The single-stage image is 1020 + 340 + 610 + 22 = 1992 MB. The shipped
+          multi-stage image contains only the final stage, because the builder
+          stage is discarded: 130 + 1 + 610 + 22 = 763 MB. The reduction is
+          (1992 - 763) / 1992 = 1229 / 1992 = 0.6170, which is 61.7 percent.
+
+  - id: "pick-reproducible-run"
+    covers: "6.3"
+    variants:
+      - prompt: |
+          Your tracking server holds these 8 runs. A dash means the field was not logged.
+
+          run  pr_auc  git_commit  git_dirty  data_sha256  seed
+          1    0.871   a41c9e2     false      9f2b61       42
+          2    0.902   a41c9e2     true       9f2b61       42
+          3    0.894   b93e77d     false      -            42
+          4    0.889   c7d0b15     false      9f2b61       -
+          5    0.884   c7d0b15     false      3e8a04       7
+          6    0.897   e15f3a8     true       3e8a04       7
+          7    0.879   e15f3a8     false      3e8a04       13
+          8    0.862   e15f3a8     false      3e8a04       21
+
+          Team rule: a run may be registered only if it can be reproduced from its record alone, which here means all of: a git commit is recorded, the working tree was clean (git_dirty is false), a data hash is recorded, and a seed is recorded. Among the runs that qualify, register the one with the highest PR AUC.
+
+          Which run gets registered? Enter just the run number.
+        answer: { type: "number", value: 5, tolerance: 0 }
+        explanation: >-
+          Runs 2 and 6 are dirty, so their commit hash does not describe the
+          code that ran. Run 3 has no data hash and run 4 has no seed. That
+          leaves runs 1, 5, 7 and 8 with PR AUC 0.871, 0.884, 0.879 and 0.862.
+          The highest of those is 0.884, so run 5 is registered, even though
+          four runs that cannot be reproduced scored higher.
+      - prompt: |
+          Your tracking server holds these 8 runs. A dash means the field was not logged.
+
+          run  pr_auc  git_commit  git_dirty  data_sha256  seed
+          1    0.913   5be20c1     false      -            11
+          2    0.874   5be20c1     false      d07c3a       11
+          3    0.921   5be20c1     true       d07c3a       11
+          4    0.868   8fa6d90     false      d07c3a       3
+          5    0.905   8fa6d90     false      71b9ee       -
+          6    0.909   2c44e17     true       71b9ee       3
+          7    0.896   2c44e17     false      71b9ee       3
+          8    0.891   2c44e17     false      71b9ee       29
+
+          Team rule: a run may be registered only if it can be reproduced from its record alone, which here means all of: a git commit is recorded, the working tree was clean (git_dirty is false), a data hash is recorded, and a seed is recorded. Among the runs that qualify, register the one with the highest PR AUC.
+
+          Which run gets registered? Enter just the run number.
+        answer: { type: "number", value: 7, tolerance: 0 }
+        explanation: >-
+          Runs 3 and 6 are dirty, so their commit hash does not describe the
+          code that ran. Run 1 has no data hash and run 5 has no seed. That
+          leaves runs 2, 4, 7 and 8 with PR AUC 0.874, 0.868, 0.896 and 0.891.
+          The highest of those is 0.896, so run 7 is registered, even though
+          four runs that cannot be reproduced scored higher.
+
+  - id: "promotion-gate-count"
+    covers: "6.4"
+    variants:
+      - prompt: |
+          Your promotion gate runs this code. A candidate is promoted only if every check is True.
+
+          MIN_IMPROVEMENT = 0.005
+          SLICE_TOLERANCE = 0.02
+          SLICES = ["new_customers", "high_amount"]
+
+          checks = {
+              "beats_incumbent": candidate.pr_auc > incumbent.pr_auc + MIN_IMPROVEMENT,
+              "absolute_floor": candidate.pr_auc > 0.85,
+              "no_slice_regression": all(
+                  candidate.by_slice[s] > incumbent.by_slice[s] - SLICE_TOLERANCE
+                  for s in SLICES
+              ),
+              "latency_ok": candidate.p99_ms < 50,
+          }
+
+          Six candidates are each evaluated, separately, against the same incumbent on the same holdout (the incumbent row does not change between candidates):
+
+          model      pr_auc  new_customers  high_amount  p99_ms
+          incumbent  0.900   0.80           0.88         44
+          A          0.912   0.81           0.89         41
+          B          0.931   0.74           0.90         38
+          C          0.903   0.82           0.88         35
+          D          0.918   0.79           0.87         50
+          E          0.909   0.79           0.87         49
+          F          0.940   0.83           0.85         30
+
+          How many of the six candidates does the gate promote? Enter just the number.
+        answer: { type: "number", value: 2, tolerance: 0 }
+        explanation: >-
+          The bars are pr_auc above 0.905, each slice above 0.78 and 0.86, and
+          p99 strictly below 50 ms. A passes everything. B fails the slice check
+          (0.74 on new_customers). C fails beats_incumbent (0.903 is not above
+          0.905). D fails latency (50 is not less than 50). E passes everything.
+          F has the best headline metric but fails the slice check (0.85 on
+          high_amount). Only A and E are promoted, so the answer is 2.
+      - prompt: |
+          Your promotion gate runs this code. A candidate is promoted only if every check is True.
+
+          MIN_IMPROVEMENT = 0.004
+          SLICE_TOLERANCE = 0.03
+          SLICES = ["new_customers", "high_amount"]
+
+          checks = {
+              "beats_incumbent": candidate.pr_auc > incumbent.pr_auc + MIN_IMPROVEMENT,
+              "absolute_floor": candidate.pr_auc > 0.85,
+              "no_slice_regression": all(
+                  candidate.by_slice[s] > incumbent.by_slice[s] - SLICE_TOLERANCE
+                  for s in SLICES
+              ),
+              "latency_ok": candidate.p99_ms < 50,
+          }
+
+          Six candidates are each evaluated, separately, against the same incumbent on the same holdout (the incumbent row does not change between candidates):
+
+          model      pr_auc  new_customers  high_amount  p99_ms
+          incumbent  0.880   0.76           0.90         40
+          A          0.883   0.78           0.91         37
+          B          0.891   0.74           0.88         46
+          C          0.902   0.77           0.86         33
+          D          0.886   0.75           0.89         49
+          E          0.895   0.79           0.92         50
+          F          0.889   0.76           0.90         42
+
+          How many of the six candidates does the gate promote? Enter just the number.
+        answer: { type: "number", value: 3, tolerance: 0 }
+        explanation: >-
+          The bars are pr_auc above 0.884, each slice above 0.73 and 0.87, and
+          p99 strictly below 50 ms. A fails beats_incumbent (0.883 is not above
+          0.884). B passes everything. C has the best headline metric but fails
+          the slice check (0.86 on high_amount). D passes everything. E fails
+          latency (50 is not less than 50). F passes everything. B, D and F are
+          promoted, so the answer is 3.
+
+  - id: "idempotent-registry-versions"
+    covers: "6.4"
+    variants:
+      - prompt: |
+          Your retraining pipeline registers every candidate it trains: one that passes the gate is registered as promoted, and one that fails is still registered, with status rejected. Registration is idempotent: it is keyed on the pair (data hash, git commit), and a pipeline run whose pair is already in the registry creates no new version.
+
+          The registry starts empty. The scheduler then executes these 10 pipeline runs, in order (some are retries or reruns):
+
+          run  data_hash  git_commit  gate
+          1    d1f0       c81a        pass
+          2    d1f0       c81a        pass
+          3    d2b7       c81a        fail
+          4    d2b7       c93e        pass
+          5    d2b7       c81a        fail
+          6    d3c4       c93e        pass
+          7    d3c4       c93e        pass
+          8    d3c4       ca05        fail
+          9    d1f0       c93e        fail
+          10   d2b7       c93e        pass
+
+          How many model versions does the registry hold after run 10, counting both promoted and rejected ones? Enter just the number.
+        answer: { type: "number", value: 6, tolerance: 0 }
+        explanation: >-
+          Count distinct (data hash, commit) pairs, whatever the gate said,
+          because rejected candidates are registered too. Run 1 creates
+          (d1f0, c81a); run 2 repeats it. Run 3 creates (d2b7, c81a). Run 4
+          creates (d2b7, c93e). Run 5 repeats run 3. Run 6 creates (d3c4, c93e);
+          run 7 repeats it. Run 8 creates (d3c4, ca05). Run 9 creates
+          (d1f0, c93e). Run 10 repeats run 4. That is 6 versions.
+      - prompt: |
+          Your retraining pipeline registers every candidate it trains: one that passes the gate is registered as promoted, and one that fails is still registered, with status rejected. Registration is idempotent: it is keyed on the pair (data hash, git commit), and a pipeline run whose pair is already in the registry creates no new version.
+
+          The registry starts empty. The scheduler then executes these 10 pipeline runs, in order (some are retries or reruns):
+
+          run  data_hash  git_commit  gate
+          1    e4a1       b20f        pass
+          2    e5c9       b20f        fail
+          3    e5c9       b20f        fail
+          4    e5c9       b37d        pass
+          5    e6d2       b37d        fail
+          6    e4a1       b37d        pass
+          7    e6d2       b4e8        pass
+          8    e6d2       b37d        fail
+          9    e7f3       b4e8        fail
+          10   e7f3       b20f        pass
+
+          How many model versions does the registry hold after run 10, counting both promoted and rejected ones? Enter just the number.
+        answer: { type: "number", value: 8, tolerance: 0 }
+        explanation: >-
+          Count distinct (data hash, commit) pairs, whatever the gate said,
+          because rejected candidates are registered too. Runs 1 and 2 each
+          create a version. Run 3 repeats run 2. Runs 4, 5, 6 and 7 each create
+          a new pair. Run 8 repeats run 5. Runs 9 and 10 each create a new pair,
+          since (e7f3, b4e8) and (e7f3, b20f) differ in the commit. Ten runs
+          minus two repeats gives 8 versions.
+
+  - id: "psi-from-counts"
+    covers: "6.5"
+    variants:
+      - prompt: |
+          You monitor the feature amount by bucketing it into 5 bins. The baseline window (training data) has 2000 rows and the live window has 500 rows. Rows per bin:
+
+          bin  baseline  live
+          1    200       25
+          2    400       75
+          3    800       175
+          4    400       125
+          5    200       100
+
+          Compute the Population Stability Index:
+
+          PSI = sum over bins of (q - p) * ln(q / p)
+
+          where p is the bin's proportion of the baseline window, q is the bin's proportion of the live window, and ln is the natural logarithm.
+
+          Give your answer to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 0.136, tolerance: 0.0005 }
+        explanation: >-
+          Baseline proportions p are 0.10, 0.20, 0.40, 0.20, 0.10 and live
+          proportions q are 0.05, 0.15, 0.35, 0.25, 0.20. The five terms
+          (q - p) * ln(q / p) are 0.03466, 0.01438, 0.00668, 0.01116 and
+          0.06931. Their sum is 0.13619, so PSI = 0.136 to 3 decimal places,
+          which the usual convention reads as moderate drift worth watching.
+      - prompt: |
+          You monitor the feature amount by bucketing it into 5 bins. The baseline window (training data) has 4000 rows and the live window has 800 rows. Rows per bin:
+
+          bin  baseline  live
+          1    600       80
+          2    1000      120
+          3    1200      240
+          4    800       200
+          5    400       160
+
+          Compute the Population Stability Index:
+
+          PSI = sum over bins of (q - p) * ln(q / p)
+
+          where p is the bin's proportion of the baseline window, q is the bin's proportion of the live window, and ln is the natural logarithm.
+
+          Give your answer to 3 decimal places. Enter just the number.
+        answer: { type: "number", value: 0.152, tolerance: 0.0005 }
+        explanation: >-
+          Baseline proportions p are 0.15, 0.25, 0.30, 0.20, 0.10 and live
+          proportions q are 0.10, 0.15, 0.30, 0.25, 0.20. The five terms
+          (q - p) * ln(q / p) are 0.02027, 0.05108, 0, 0.01116 and 0.06931.
+          Their sum is 0.15183, so PSI = 0.152 to 3 decimal places, which the
+          usual convention reads as moderate drift worth watching.
+
+  - id: "ks-statistic"
+    covers: "6.5"
+    variants:
+      - prompt: |
+          You compare the live distribution of the feature amount against the baseline. Rows per range of amount:
+
+          range        baseline  live
+          0 to 20      120       40
+          20 to 50     140       70
+          50 to 100    80        65
+          100 to 200   40        45
+          over 200     20        30
+
+          The baseline window has 400 rows in total and the live window has 250.
+
+          Compute the Kolmogorov-Smirnov statistic: the largest absolute difference between the baseline cumulative proportion and the live cumulative proportion, evaluated at the upper edge of each range (so each cumulative proportion is the fraction of that window's rows at or below the edge).
+
+          Give your answer to 3 decimal places. Enter just the number, as a fraction between 0 and 1.
+        answer: { type: "number", value: 0.21, tolerance: 0.0005 }
+        explanation: >-
+          Baseline cumulative proportions are 120/400 = 0.30, 260/400 = 0.65,
+          340/400 = 0.85, 380/400 = 0.95 and 1. Live cumulative proportions are
+          40/250 = 0.16, 110/250 = 0.44, 175/250 = 0.70, 220/250 = 0.88 and 1.
+          The absolute gaps are 0.14, 0.21, 0.15, 0.07 and 0. The largest is at
+          the edge 50, so the KS statistic is 0.210.
+      - prompt: |
+          You compare the live distribution of the feature amount against the baseline. Rows per range of amount:
+
+          range        baseline  live
+          0 to 20      150       36
+          20 to 50     175       48
+          50 to 100    100       66
+          100 to 200   50        60
+          over 200     25        30
+
+          The baseline window has 500 rows in total and the live window has 240.
+
+          Compute the Kolmogorov-Smirnov statistic: the largest absolute difference between the baseline cumulative proportion and the live cumulative proportion, evaluated at the upper edge of each range (so each cumulative proportion is the fraction of that window's rows at or below the edge).
+
+          Give your answer to 3 decimal places. Enter just the number, as a fraction between 0 and 1.
+        answer: { type: "number", value: 0.3, tolerance: 0.0005 }
+        explanation: >-
+          Baseline cumulative proportions are 150/500 = 0.30, 325/500 = 0.65,
+          425/500 = 0.85, 475/500 = 0.95 and 1. Live cumulative proportions are
+          36/240 = 0.15, 84/240 = 0.35, 150/240 = 0.625, 210/240 = 0.875 and 1.
+          The absolute gaps are 0.15, 0.30, 0.225, 0.075 and 0. The largest is
+          at the edge 50, so the KS statistic is 0.300.
+
+  - id: "premortem-expected-cost"
+    covers: "6.6"
+    variants:
+      - prompt: |
+          Your pre-mortem lists five failure modes. For each you estimated the probability that it happens in the next year, what it costs per day while it goes undetected, and how many days it takes to detect.
+
+          failure                                      probability  cost_per_day  days_to_detect
+          A  model server crashes                      0.9          20000         0.05
+          B  upstream schema change nulls a feature    0.5          3000          4
+          C  training-serving skew in a feature        0.3          1500          30
+          D  concept drift, labels arrive late         0.4          800           45
+          E  expired credential stops the feature job  0.6          2500          2
+
+          Rank the failures by expected cost, where
+
+          expected cost = probability * cost_per_day * days_to_detect
+
+          What is the expected cost of the failure at the top of the ranking? Enter just the number, in dollars.
+        answer: { type: "number", value: 14400, tolerance: 0 }
+        explanation: >-
+          Expected costs are A: 0.9 * 20000 * 0.05 = 900, B: 0.5 * 3000 * 4 =
+          6000, C: 0.3 * 1500 * 30 = 13500, D: 0.4 * 800 * 45 = 14400 and
+          E: 0.6 * 2500 * 2 = 3000. The top of the ranking is D, concept drift,
+          at 14400 dollars. The loud crash is last: it is likely and expensive
+          per day but detected almost at once.
+      - prompt: |
+          Your pre-mortem lists five failure modes. For each you estimated the probability that it happens in the next year, what it costs per day while it goes undetected, and how many days it takes to detect.
+
+          failure                                      probability  cost_per_day  days_to_detect
+          A  model server crashes                      0.8          30000         0.04
+          B  upstream schema change nulls a feature    0.6          4000          3
+          C  training-serving skew in a feature        0.35         2000          28
+          D  concept drift, labels arrive late         0.25         1200          60
+          E  expired credential stops the feature job  0.7          3500          1.5
+
+          Rank the failures by expected cost, where
+
+          expected cost = probability * cost_per_day * days_to_detect
+
+          What is the expected cost of the failure at the top of the ranking? Enter just the number, in dollars.
+        answer: { type: "number", value: 19600, tolerance: 0 }
+        explanation: >-
+          Expected costs are A: 0.8 * 30000 * 0.04 = 960, B: 0.6 * 4000 * 3 =
+          7200, C: 0.35 * 2000 * 28 = 19600, D: 0.25 * 1200 * 60 = 18000 and
+          E: 0.7 * 3500 * 1.5 = 3675. The top of the ranking is C,
+          training-serving skew, at 19600 dollars. The loud crash is last: it is
+          likely and expensive per day but detected almost at once.
+---
+
+## What this covers
+
+This exam closes phase 6. Every node in the phase is examined:
+
+- **6.1 Serving a model** - latency percentiles and input validation
+- **6.2 Containerize and deploy** - layer caching and multi-stage image size
+- **6.3 Experiment tracking and model registry** - which runs can be reproduced from their record
+- **6.4 Pipelines and retraining** - the promotion gate and idempotent registration
+- **6.5 Monitoring and drift** - PSI and the KS statistic
+- **6.6 The system view** - ranking failure modes by expected cost
+
+Each question gives you all the data you need. You compute an answer and type a number. Nothing is multiple choice.
+
+## How to prepare
+
+The exam is timed and open-tool: Python, a notebook or a calculator are all allowed, and you are expected to use them. There is nothing to memorise. If you can compute a percentile, a PSI and a KS statistic from a small table, trace which Docker layers rebuild, and apply a gate by hand, you are ready. Read each prompt for the rounding and unit it asks for. The numbers change on a retake, so rework the method, not the answers.

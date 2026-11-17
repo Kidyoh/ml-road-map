@@ -61,7 +61,9 @@ export default async function LandingPage() {
         Forty nodes across eight phases. Each one gives you a goal, two
         resources, a coding session, and a checklist you can genuinely fail.
         Nodes unlock when their prerequisites are passed &mdash; locked ones stay
-        visible, so you can always see the shape of the road ahead.
+        visible, so you can always see the shape of the road ahead. Every phase
+        ends in a timed exam that is graded for you, and the final exam and
+        capstone earn a certificate.
       </p>
 
       {session?.user ? (

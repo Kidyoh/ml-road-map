@@ -5,7 +5,7 @@ import { ResourceCards } from "@/components/node/resource-cards";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Resource } from "@/lib/content-schema";
-import type { NodeSummary } from "@/lib/progress";
+import type { ExamSummary, NodeSummary } from "@/lib/progress";
 
 /**
  * A published node whose prerequisites are not passed yet.
@@ -36,11 +36,14 @@ export function LockedNode({
   resources,
   difficulty,
   blockers,
+  examBlockers,
   signedIn,
 }: {
   resources: { primary: Resource; alt: Resource };
   difficulty: string;
   blockers: NodeSummary[];
+  /** Exams standing between the learner and this node's phase. */
+  examBlockers: ExamSummary[];
   signedIn: boolean;
 }) {
   return (
@@ -55,7 +58,8 @@ export function LockedNode({
         <CardContent className="flex flex-col gap-4 text-sm leading-relaxed">
           <p className="max-w-prose">
             The session, checkpoint and questions for this node open up once its
-            prerequisites are passed. The goal above and the resources below are
+            prerequisites{examBlockers.length > 0 ? " and the exams before it" : ""}{" "}
+            are passed. The goal above and the resources below are
             visible now, so you can see where this is going.
           </p>
 
@@ -82,6 +86,31 @@ export function LockedNode({
                         : b.state === "passed"
                           ? "passed"
                           : b.state.replace("_", " ")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {examBlockers.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-muted-foreground text-xs tracking-widest uppercase">
+                {examBlockers.length === 1 ? "Pass this exam" : "Pass these exams"}
+              </p>
+              <ul className="flex flex-col gap-2">
+                {examBlockers.map((exam) => (
+                  <li key={exam.id} className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/exam/${exam.slug}`}
+                      className="text-primary hover:underline"
+                    >
+                      {exam.title}
+                    </Link>
+                    <span className="text-muted-foreground text-xs">
+                      {exam.state === "locked"
+                        ? "opens when its phase is finished"
+                        : exam.state.replace("_", " ")}
                     </span>
                   </li>
                 ))}
